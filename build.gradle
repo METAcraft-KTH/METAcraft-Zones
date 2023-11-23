@@ -21,6 +21,20 @@ repositories {
 
 	//Fabric Permissions API
 	maven { url 'https://oss.sonatype.org/content/repositories/snapshots' }
+
+	//Leukocyte
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = "Modrinth"
+				url = "https://api.modrinth.com/maven"
+			}
+		}
+		filter {
+			includeGroup "maven.modrinth"
+		}
+	}
+	maven { url = 'https://maven.nucleoid.xyz/' }
 }
 
 loom {
@@ -43,6 +57,9 @@ dependencies {
 
 	include(implementation(annotationProcessor("io.github.llamalad7:mixinextras-fabric:${project.mixin_extras_version}")))
 	include(modImplementation("me.lucko:fabric-permissions-api:${project.fabric_permissions_api_version}"))
+
+	modImplementation "xyz.nucleoid:stimuli:${project.stimuli_version}"
+	modImplementation("maven.modrinth:leukocyte:${project.leukocyte_version}")
 }
 
 processResources {

@@ -1,0 +1,13 @@
+{
+	"required": true,
+	"package": "se.datasektionen.mc.zones.compat.mixin",
+	"compatibilityLevel": "JAVA_17",
+	"plugin": "se.datasektionen.mc.zones.compat.MixinPlugin",
+	"mixins": [
+		"AccessorIndexedAuthorityMap",
+		"MixinProtectCommand"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

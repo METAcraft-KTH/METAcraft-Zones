@@ -8,6 +8,8 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import se.datasektionen.mc.zones.METAcraftZones;
 import se.datasektionen.mc.zones.ZoneManager;
+import se.datasektionen.mc.zones.compat.CompatMods;
+import se.datasektionen.mc.zones.compat.leukocyte.LeukocyteZoneManager;
 import se.datasektionen.mc.zones.zone.data.ZoneData;
 import se.datasektionen.mc.zones.zone.data.ZoneDataType;
 import se.datasektionen.mc.zones.zone.data.ZoneDataRegistry;
@@ -192,6 +194,10 @@ public class RealZone implements Zone {
 		return remoteDimensions.values();
 	}
 
+	public Zone getRemoteDimension(RegistryKey<World> dim) {
+		return remoteDimensions.get(dim);
+	}
+
 	public void addRemoteDimension(World remoteDim) {
 		if (remoteDim.getRegistryKey() != getDim()) {
 			var newContainer = new RemoteZone(remoteDim, this);
@@ -199,12 +205,20 @@ public class RealZone implements Zone {
 				ZoneManager.getInstance(world.getServer()).addZone(newContainer);
 			}
 			remoteDimensions.put(remoteDim.getRegistryKey(), newContainer);
+			fixDimensionLeukocyte();
 		}
 	}
 
 	public void removeRemoteDimension(World remoteDim) {
 		if (world.getServer() != null) {
 			ZoneManager.getInstance(world.getServer()).removeZone(remoteDimensions.remove(remoteDim.getRegistryKey()));
+			fixDimensionLeukocyte();
+		}
+	}
+
+	private void fixDimensionLeukocyte() {
+		if (CompatMods.LEUKOCYTE.installed()) {
+			LeukocyteZoneManager.updateZoneDimensions(world.getServer(), this);
 		}
 	}
 

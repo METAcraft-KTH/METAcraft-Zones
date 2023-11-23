@@ -7,6 +7,8 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.PersistentState;
 import net.minecraft.world.World;
+import se.datasektionen.mc.zones.compat.CompatMods;
+import se.datasektionen.mc.zones.compat.leukocyte.LeukocyteZoneManager;
 import se.datasektionen.mc.zones.zone.RealZone;
 import se.datasektionen.mc.zones.zone.Zone;
 import se.datasektionen.mc.zones.zone.ZoneMap;
@@ -48,7 +50,19 @@ public class ZoneManager extends PersistentState {
 	protected ZoneManager(MinecraftServer server) {
 		this.server = server;
 	}
-	private final ZoneMap zones = new ZoneMap(this::markDirty);
+	private final ZoneMap zones = new ZoneMap(this::markDirty, this::onZoneAdd, this::onZoneRemove);
+
+	protected void onZoneAdd(Zone zone) {
+		if (CompatMods.LEUKOCYTE.installed()) {
+			LeukocyteZoneManager.onZoneAdd(server, zone);
+		}
+	}
+
+	protected void onZoneRemove(Zone zone) {
+		if (CompatMods.LEUKOCYTE.installed()) {
+			LeukocyteZoneManager.onZoneRemove(server, zone);
+		}
+	}
 
 	public Optional<Zone> getFirstZoneMatching(RegistryKey<World> dim, Predicate<Zone> zonePredicate) {
 		return zones.getZones(dim).stream().filter(zonePredicate).findFirst();

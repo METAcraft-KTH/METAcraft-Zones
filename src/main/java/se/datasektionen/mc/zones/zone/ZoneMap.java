@@ -12,6 +12,7 @@ import net.minecraft.world.World;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
 public class ZoneMap {
 
@@ -19,15 +20,26 @@ public class ZoneMap {
 	protected Map<String, RealZone> zones = new HashMap<>();
 
 	protected final Runnable markNeedsSave;
+	protected final Consumer<Zone> onAdd;
+	protected final Consumer<Zone> onRemove;
 
-	public ZoneMap(Runnable markNeedsSave) {
+	public ZoneMap(Runnable markNeedsSave, Consumer<Zone> onAdd, Consumer<Zone> onRemove) {
 		this.markNeedsSave = markNeedsSave;
+		this.onAdd = onAdd;
+		this.onRemove = onRemove;
 	}
 
 	public void addZone(Zone zone) {
 		if (zone.isRealZone()) {
-			zones.put(zone.getName(), zone.getRealZone());
 			markNeedsSave.run();
+			onAdd.accept(zone);
+		}
+		addZoneInternal(zone);
+	}
+
+	private void addZoneInternal(Zone zone) {
+		if (zone.isRealZone()) {
+			zones.put(zone.getName(), zone.getRealZone());
 		}
 		worldZones.put(zone.getDim(), zone);
 		if (zone.isRealZone()) {
@@ -46,6 +58,7 @@ public class ZoneMap {
 	public void removeZone(Zone zone) {
 		if (zone.isRealZone()) {
 			zones.remove(zone.getName());
+			onRemove.accept(zone);
 			markNeedsSave.run();
 		}
 		worldZones.remove(zone.getDim(), zone);
@@ -66,6 +79,10 @@ public class ZoneMap {
 
 	public Collection<String> getZoneNames() {
 		return zones.keySet();
+	}
+
+	public Collection<RealZone> getZones() {
+		return zones.values();
 	}
 
 	public void updatePriority(RealZone zone) {
@@ -90,7 +107,7 @@ public class ZoneMap {
 			throw new IllegalStateException("NBT type of list must be Compound!");
 		}
 		for (NbtElement element : nbt) {
-			RealZone.fromNBT(server, ((NbtCompound) element), markNeedsSave).ifPresent(this::addZone);
+			RealZone.fromNBT(server, ((NbtCompound) element), markNeedsSave).ifPresent(this::addZoneInternal);
 		}
 	}
 

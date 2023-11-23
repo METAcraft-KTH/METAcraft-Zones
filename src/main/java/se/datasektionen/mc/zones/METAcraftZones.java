@@ -4,6 +4,7 @@ import net.fabricmc.api.ModInitializer;
 import net.minecraft.util.Identifier;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import se.datasektionen.mc.zones.compat.CompatMods;
 import se.datasektionen.mc.zones.zone.ZoneRegistry;
 
 public class METAcraftZones implements ModInitializer {
@@ -15,6 +16,7 @@ public class METAcraftZones implements ModInitializer {
 	public void onInitialize() {
 		ZoneRegistry.init();
 		Commands.registerCommands();
+		CompatMods.init();
 		LOGGER.info("Loaded METAcraft zones by Acuadragon100");
 	}
 

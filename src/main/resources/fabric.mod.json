@@ -20,7 +20,8 @@
 		]
 	},
 	"mixins": [
-		"metacraft-zones.mixins.json"
+		"metacraft-zones.mixins.json",
+		"metacraft-zones.compat.mixins.json"
 	],
 	"depends": {
 		"fabricloader": ">=0.14.21",
@@ -29,6 +30,6 @@
 		"fabric-api": "*"
 	},
 	"suggests": {
-		"another-mod": "*"
+		"leukocyte": "*"
 	}
 }
