@@ -5,7 +5,7 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 import xyz.nucleoid.leukocyte.authority.Authority;
 import xyz.nucleoid.leukocyte.authority.IndexedAuthorityMap;
 
-@Mixin(IndexedAuthorityMap.class)
+@Mixin(value = IndexedAuthorityMap.class, remap = false)
 public interface AccessorIndexedAuthorityMap {
 
 	@Invoker

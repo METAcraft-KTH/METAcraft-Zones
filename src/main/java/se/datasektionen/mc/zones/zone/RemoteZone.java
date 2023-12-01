@@ -8,9 +8,10 @@ import se.datasektionen.mc.zones.zone.data.ZoneData;
 import se.datasektionen.mc.zones.zone.data.ZoneDataType;
 import se.datasektionen.mc.zones.zone.types.ZoneType;
 
+import java.util.Collection;
 import java.util.Optional;
 
-public class RemoteZone implements Zone {
+public class RemoteZone extends Zone {
 
 	private final World world;
 	private final RealZone container;
@@ -43,6 +44,11 @@ public class RemoteZone implements Zone {
 	}
 
 	@Override
+	protected Collection<ZoneData> getZoneDatas() {
+		return container.getZoneDatas();
+	}
+
+	@Override
 	public String getName() {
 		return container.getName();
 	}
@@ -70,5 +76,15 @@ public class RemoteZone implements Zone {
 	@Override
 	public RealZone getRealZone() {
 		return container;
+	}
+
+	@Override
+	public World getWorld() {
+		return world;
+	}
+
+	@Override
+	public void markDirty() {
+		container.markDirty();
 	}
 }

@@ -1,38 +1,67 @@
 package se.datasektionen.mc.zones.zone;
 
+import net.minecraft.entity.Entity;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.NotNull;
 import se.datasektionen.mc.zones.zone.data.ZoneData;
+import se.datasektionen.mc.zones.zone.data.ZoneDataEntityTracking;
 import se.datasektionen.mc.zones.zone.data.ZoneDataType;
 import se.datasektionen.mc.zones.zone.types.ZoneType;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 
-public interface Zone extends Comparable<Zone> {
+public abstract class Zone implements Comparable<Zone> {
 
-	boolean contains(BlockPos pos);
+	protected final Set<Entity> entities = new HashSet<>();
 
-	<T extends ZoneData> Optional<T> get(ZoneDataType<T> data);
+	public abstract boolean contains(BlockPos pos);
 
-	<T extends ZoneData> T getOrCreate(ZoneDataType<T> data);
+	public abstract <T extends ZoneData> Optional<T> get(ZoneDataType<T> data);
 
-	String getName();
+	public abstract <T extends ZoneData> T getOrCreate(ZoneDataType<T> data);
 
-	RegistryKey<World> getDim();
+	protected abstract Collection<ZoneData> getZoneDatas();
 
-	ZoneType getZone();
+	public abstract String getName();
 
-	int getPriority();
+	public abstract RegistryKey<World> getDim();
 
-	boolean isRealZone();
+	public abstract ZoneType getZone();
 
-	RealZone getRealZone();
+	public abstract int getPriority();
+
+	public abstract boolean isRealZone();
+
+	public abstract RealZone getRealZone();
+
+	public abstract World getWorld();
+
+	public void addToZone(Entity entity) {
+		entities.add(entity);
+		getZoneDatas().forEach(data -> {
+			if (data instanceof ZoneDataEntityTracking tracking) {
+				tracking.onEnter(entity);
+			}
+		});
+	}
+
+	public void removeFromZone(Entity entity) {
+		getZoneDatas().forEach(data -> {
+			if (data instanceof ZoneDataEntityTracking tracking) {
+				tracking.onLeave(entity);
+			}
+		});
+		entities.remove(entity);
+	}
 
 
 	@Override
-	default int compareTo(@NotNull Zone zone) {
+	public int compareTo(@NotNull Zone zone) {
 		int state = Integer.compare(zone.getPriority(), getPriority());
 		if (state == 0) {
 			state = Double.compare(this.getZone().getSize(), zone.getZone().getSize());
@@ -42,5 +71,7 @@ public interface Zone extends Comparable<Zone> {
 		}
 		return state;
 	}
+
+	public abstract void markDirty();
 
 }

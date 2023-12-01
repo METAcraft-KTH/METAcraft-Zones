@@ -17,7 +17,7 @@ import se.datasektionen.mc.zones.zone.types.ZoneType;
 
 import java.util.*;
 
-public class RealZone implements Zone {
+public class RealZone extends Zone {
 	private static final String NAME = "name";
 	private static final String DIM = "dim";
 	private static final String REMOTE_DIMS = "remote_dims";
@@ -39,6 +39,7 @@ public class RealZone implements Zone {
 		this.world = world;
 		this.zone = zone;
 		this.zoneData = zoneData instanceof HashMap<ZoneDataType<?>, ZoneData> ? zoneData : new HashMap<>(zoneData);
+		zoneData.values().forEach(data -> data.setZone(this));
 		this.priority = priority;
 		this.markNeedsSave = markNeedsSave;
 	}
@@ -61,10 +62,17 @@ public class RealZone implements Zone {
 			if (ZoneDataRegistry.REGISTRY.getKey(data).isEmpty()) {
 				throw new IllegalStateException("You need to register your zone data types!");
 			}
-			zoneData.put(data, data.creator().get());
+			var newData = data.creator().get();
+			newData.setZone(this);
+			zoneData.put(data, newData);
 			markNeedsSave.run();
 			return (T) zoneData.get(data);
 		});
+	}
+
+	@Override
+	protected Collection<ZoneData> getZoneDatas() {
+		return zoneData.values();
 	}
 
 	@Override
@@ -77,8 +85,14 @@ public class RealZone implements Zone {
 		return world.getRegistryKey();
 	}
 
+	@Override
 	public World getWorld() {
 		return world;
+	}
+
+	@Override
+	public void markDirty() {
+		this.markNeedsSave.run();
 	}
 
 	@Override

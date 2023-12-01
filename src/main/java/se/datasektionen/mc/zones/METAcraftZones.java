@@ -6,6 +6,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import se.datasektionen.mc.zones.compat.CompatMods;
 import se.datasektionen.mc.zones.zone.ZoneRegistry;
+import se.datasektionen.mc.zones.zone.data.ZoneDataRegistry;
 
 public class METAcraftZones implements ModInitializer {
 	public static final Logger LOGGER = LogManager.getLogger("METAcraft-Zones");
@@ -15,6 +16,7 @@ public class METAcraftZones implements ModInitializer {
 	@Override
 	public void onInitialize() {
 		ZoneRegistry.init();
+		ZoneDataRegistry.init();
 		Commands.registerCommands();
 		CompatMods.init();
 		LOGGER.info("Loaded METAcraft zones by Acuadragon100");

@@ -1,6 +1,7 @@
 package se.datasektionen.mc.zones;
 
 import com.google.common.collect.ImmutableList;
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.ArgumentBuilder;
@@ -10,18 +11,25 @@ import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.command.argument.DimensionArgumentType;
+import net.minecraft.command.argument.TextArgumentType;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.world.World;
 import se.datasektionen.mc.zones.zone.RealZone;
 import se.datasektionen.mc.zones.zone.ZoneRegistry;
+import se.datasektionen.mc.zones.zone.data.MessageZoneData;
+import se.datasektionen.mc.zones.zone.data.ZoneDataRegistry;
 import se.datasektionen.mc.zones.zone.types.IntersectZone;
 import se.datasektionen.mc.zones.zone.types.NegateZone;
 import se.datasektionen.mc.zones.zone.types.UnionZone;
 import se.datasektionen.mc.zones.zone.types.ZoneType;
 
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Optional;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -110,9 +118,9 @@ public class ZoneManagementCommand {
 					Text.literal("AdditionalDimensions: " + zone.getRemoteZones().stream().map(type -> {
 						return type.getDim().getValue().toString();
 					}).collect(Collectors.joining(", "))),
-					Text.literal("Data: " + zone.getAllData().stream().map(data -> " " + data.toString()).collect(
-							Collectors.joining(",\n")
-					))
+					Text.literal("Data: ").append(
+						join(zone.getAllData().stream().map(data -> Text.literal(" ").append(data.toText())).iterator(), Text.literal(",\n"))
+					)
 				);
 			})
 		).then(
@@ -150,6 +158,103 @@ public class ZoneManagementCommand {
 				});
 				return 1;
 			})
+		).then(
+			messageCommand("entry-message", MessageZoneData::getEnterMessage, MessageZoneData::setEnterMessage)
+		).then(
+			messageCommand("exit-message", MessageZoneData::getLeaveMessage, MessageZoneData::setLeaveMessage).then(
+				literal("show-on-other-entry").then(
+					zone().then(
+							argument("should-show", BoolArgumentType.bool()).executes(ctx -> {
+								boolean newState = BoolArgumentType.getBool(ctx, "should-show");
+								getZone(ctx).getOrCreate(ZoneDataRegistry.MESSAGE).setShowLeaveMessageWhenEnteringOtherZone(
+									newState
+								);
+								ctx.getSource().sendFeedback(
+										() -> Text.literal("Set exit display on other entry to " + newState),
+										true
+								);
+								return 1;
+							})
+					).executes(ctx -> {
+						getZone(ctx).get(ZoneDataRegistry.MESSAGE).ifPresentOrElse(data -> {
+							ctx.getSource().sendFeedback(
+									() -> Text.literal("Value: " + data.showLeaveMessageWhenEnteringOtherZone()),
+									false
+							);
+						}, () -> {
+							ctx.getSource().sendFeedback(
+									() -> Text.literal("No data"),
+									false
+							);
+						});
+						return 1;
+					})
+				)
+			)
+		);
+	}
+
+	static Text join(Iterator<? extends Text> text, Text delimiter) {
+		MutableText full = Text.empty();
+		if (text.hasNext()) {
+			full.append(text.next());
+		}
+		text.forEachRemaining(part -> {
+			full.append(delimiter).append(part);
+		});
+		return full;
+	}
+
+	static ArgumentBuilder<ServerCommandSource, ?> messageCommand(
+			String name,
+			Function<MessageZoneData, Optional<Text>> messageGetter,
+			BiConsumer<MessageZoneData, Optional<Text>> messageSetter
+	) {
+		return literal(name).then(
+			literal("get").then(
+				zone().executes(ctx -> {
+					var opt = getZone(ctx).get(ZoneDataRegistry.MESSAGE).flatMap(messageGetter);
+					opt.ifPresentOrElse(text -> {
+						ctx.getSource().sendFeedback(() -> Text.literal("Message: ").append(text), false);
+					}, () -> {
+						ctx.getSource().sendFeedback(() -> Text.literal("No message set for this zone"), false);
+					});
+					return opt.isPresent() ? 1 : 0;
+				})
+			)
+		).then(
+			literal("set").then(
+				zone().then(
+					argument("text", TextArgumentType.text()).executes(ctx -> {
+						var text = TextArgumentType.getTextArgument(ctx,"text");
+						var zone = getZone(ctx);
+						messageSetter.accept(
+							zone.getOrCreate(ZoneDataRegistry.MESSAGE),
+							Optional.of(text)
+						);
+						ctx.getSource().sendFeedback(
+								() -> Text.literal("Set " + name + " in zone " + zone.getName() + " to ").append(text),
+								true
+						);
+						return 1;
+					})
+				)
+			)
+		).then(
+			literal("remove").then(
+				zone().executes(ctx -> {
+					var zone = getZone(ctx);
+					messageSetter.accept(
+							zone.getOrCreate(ZoneDataRegistry.MESSAGE),
+						Optional.empty()
+					);
+					ctx.getSource().sendFeedback(
+							() -> Text.literal("Removed " + name + " from " + zone.getName()),
+							true
+					);
+					return 1;
+				})
+			)
 		);
 	}
 
