@@ -64,7 +64,7 @@ public class RegionZone extends ZoneType {
 
 	@Override
 	public double getSize() {
-		return (maxX - minX) * (maxZ - minZ) * world.getHeight();
+		return ((double) maxX - minX) * ((double) maxZ - minZ) * world.getHeight();
 	}
 
 	@Override
