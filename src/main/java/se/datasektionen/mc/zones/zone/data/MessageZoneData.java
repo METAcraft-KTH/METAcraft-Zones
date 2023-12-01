@@ -31,8 +31,6 @@ public class MessageZoneData extends ZoneDataEntityTracking {
 		this.showLeaveMessageWhenEnteringOtherZone = showLeaveMessageWhenEnteringOtherZone;
 	}
 
-	private static final Timer TIMER = new Timer();
-
 	@Override
 	public void onEnter(Entity entity) {
 		if (entity instanceof PlayerEntity player) {
