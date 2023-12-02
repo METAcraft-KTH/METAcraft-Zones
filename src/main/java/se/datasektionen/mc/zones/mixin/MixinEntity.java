@@ -57,4 +57,15 @@ public abstract class MixinEntity implements EntityData {
 		}
 	}
 
+	@Inject(
+		method = "setRemoved",
+		at = @At("HEAD")
+	)
+	public void setRemoved(Entity.RemovalReason reason, CallbackInfo ci) {
+		if (currentZone != null) {
+			currentZone.removeFromZone((Entity) (Object) this);
+			currentZone = null;
+		}
+	}
+
 }
