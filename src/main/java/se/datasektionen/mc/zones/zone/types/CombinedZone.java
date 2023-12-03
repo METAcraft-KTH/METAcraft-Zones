@@ -2,11 +2,11 @@ package se.datasektionen.mc.zones.zone.types;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.world.World;
+import se.datasektionen.mc.zones.zone.Zone;
 
 import java.util.List;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public abstract class CombinedZone extends ZoneType {
@@ -14,16 +14,18 @@ public abstract class CombinedZone extends ZoneType {
 	protected final List<ZoneType> zones;
 	protected double size;
 
-	public static <T extends CombinedZone> Codec<T> getCodec(World world, BiFunction<World, List<ZoneType>, T> creator) {
+	public static <T extends CombinedZone> Codec<T> getCodec(Function<List<ZoneType>, T> creator) {
 		return RecordCodecBuilder.create(instance -> instance.group(
-				getRegistryCodec(world).listOf().fieldOf("zones").forGetter(zone -> zone.zones)
-		).apply(instance, zones -> creator.apply(world, zones)));
+				REGISTRY_CODEC.listOf().fieldOf("zones").forGetter(zone -> zone.zones)
+		).apply(instance, creator));
 	}
 
-	public CombinedZone(World world, List<ZoneType> zones) {
-		super(world);
+	public CombinedZone(List<ZoneType> zones) {
 		this.zones = zones;
-		size = getSize(zones);
+		if (zones.isEmpty()) {
+			throw new IllegalStateException("Don't create an empty combined zone!");
+		}
+		this.setZoneRef(zones.get(0).getZoneRef());
 	}
 
 	protected abstract double getSize(Iterable<ZoneType> zones);
@@ -44,13 +46,24 @@ public abstract class CombinedZone extends ZoneType {
 	}
 
 	@Override
+	public void setZoneRef(Zone zone) {
+		super.setZoneRef(zone);
+		if (zone != null) {
+			for (ZoneType type : zones) {
+				type.setZoneRef(zone);
+			}
+			size = getSize(zones);
+		}
+	}
+
+	@Override
 	public double getSize() {
 		return size;
 	}
 
 	@Override
-	public ZoneType clone(World otherWorld) {
-		return clone(otherWorld, zones.stream().map(zone -> zone.clone(otherWorld)).collect(Collectors.toList()));
+	public ZoneType clone() {
+		return clone(zones.stream().map(ZoneType::clone).collect(Collectors.toList()));
 	}
 
 	@Override
@@ -58,7 +71,7 @@ public abstract class CombinedZone extends ZoneType {
 		return getClass().getSimpleName().replace("Zone", "") + "[" + zones.stream().map(ZoneType::toString).collect(Collectors.joining(", ")) + "]";
 	}
 
-	protected abstract ZoneType clone(World otherWorld, List<ZoneType> newZones);
+	protected abstract ZoneType clone(List<ZoneType> newZones);
 
 	public enum UpdateDirection {
 		ADD,

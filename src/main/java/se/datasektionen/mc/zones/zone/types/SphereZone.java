@@ -1,13 +1,12 @@
 package se.datasektionen.mc.zones.zone.types;
 
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
 import se.datasektionen.mc.zones.zone.ZoneRegistry;
 
 public class SphereZone extends CircleZone {
 
-	public SphereZone(World world, BlockPos center, double radius) {
-		super(world, center, radius);
+	public SphereZone(BlockPos center, double radius) {
+		super(center, radius);
 	}
 
 	@Override
@@ -21,8 +20,8 @@ public class SphereZone extends CircleZone {
 	}
 
 	@Override
-	public ZoneType clone(World otherWorld) {
-		return new SphereZone(otherWorld, center.toImmutable(), radius);
+	public ZoneType clone() {
+		return new SphereZone(center.toImmutable(), radius);
 	}
 
 	@Override

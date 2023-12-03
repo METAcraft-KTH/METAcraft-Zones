@@ -20,14 +20,15 @@ public class RemoteZone extends Zone {
 	public RemoteZone(World world, RealZone container) {
 		this.world = world;
 		this.container = container;
-		this.zone = container.getZone().clone(world);
+		this.zone = container.getZone().clone();
+		this.zone.setZoneRef(this);
 	}
 
 	@Override
 	public boolean contains(BlockPos pos) {
 		double factor = DimensionType.getCoordinateScaleFactor(world.getDimension(), container.world.getDimension());
-		return container.contains(
-				container.world.getWorldBorder().clamp(
+		return zone.contains(
+				world.getWorldBorder().clamp(
 						pos.getX() * factor, pos.getY(), pos.getZ() * factor
 				)
 		);

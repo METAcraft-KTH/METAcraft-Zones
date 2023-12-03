@@ -1,7 +1,6 @@
 package se.datasektionen.mc.zones.zone.types;
 
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
 import org.apache.commons.lang3.stream.Streams;
 import se.datasektionen.mc.zones.zone.ZoneRegistry;
 
@@ -11,12 +10,12 @@ import java.util.List;
 
 public class IntersectZone extends CombinedZone {
 
-	public IntersectZone(World world, ZoneType... zones) {
-		this(world, new ArrayList<>(Arrays.asList(zones)));
+	public IntersectZone(ZoneType... zones) {
+		this(new ArrayList<>(Arrays.asList(zones)));
 	}
 
-	public IntersectZone(World world, List<ZoneType> zones) {
-		super(world, zones);
+	public IntersectZone(List<ZoneType> zones) {
+		super(zones);
 	}
 
 	@Override
@@ -43,8 +42,8 @@ public class IntersectZone extends CombinedZone {
 	}
 
 	@Override
-	public ZoneType clone(World otherWorld, List<ZoneType> zones) {
-		return new IntersectZone(otherWorld, zones);
+	public ZoneType clone(List<ZoneType> zones) {
+		return new IntersectZone(zones);
 	}
 
 	@Override

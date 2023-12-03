@@ -17,9 +17,9 @@ import net.minecraft.registry.tag.TagKey;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
 import net.minecraft.world.biome.Biome;
 import se.datasektionen.mc.zones.ZoneManagementCommand;
+import se.datasektionen.mc.zones.zone.Zone;
 import se.datasektionen.mc.zones.zone.ZoneRegistry;
 
 import static net.minecraft.server.command.CommandManager.argument;
@@ -33,12 +33,10 @@ public class BiomeZone extends ZoneType {
 	protected Either<RegistryEntry<Biome>, TagKey<Biome>> biome;
 	protected boolean alwaysCheckSourceDim;
 
-	public static Codec<BiomeZone> getCodec(World world) {
-		return RecordCodecBuilder.create(instance -> instance.group(
-				BIOME_CODEC.fieldOf("biome").forGetter(zone -> zone.biome),
-				Codec.BOOL.fieldOf("alwaysCheckSourceDim").forGetter(zone -> zone.alwaysCheckSourceDim)
-		).apply(instance, (biome, alwaysCheckSourceDim) -> new BiomeZone(world, biome, alwaysCheckSourceDim)));
-	}
+	public static final Codec<BiomeZone> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+			BIOME_CODEC.fieldOf("biome").forGetter(zone -> zone.biome),
+			Codec.BOOL.fieldOf("alwaysCheckSourceDim").forGetter(zone -> zone.alwaysCheckSourceDim)
+	).apply(instance, BiomeZone::new));
 
 
 	private static final DynamicCommandExceptionType BIOME_FAIL = new DynamicCommandExceptionType(id -> Text.literal(id + " is not a valid biome or tag!"));
@@ -59,8 +57,7 @@ public class BiomeZone extends ZoneType {
 
 	private static int runCommand(CommandContext<ServerCommandSource> ctx, boolean alwaysCheckSourceDim, ZoneManagementCommand.ZoneAdder addZone) throws CommandSyntaxException {
 		var biome = RegistryPredicateArgumentType.getPredicate(ctx, "biome", RegistryKeys.BIOME, BIOME_FAIL);
-		return addZone.add(world -> new BiomeZone(
-			world,
+		return addZone.add(() -> new BiomeZone(
 			biome.getKey().mapLeft(
 				key -> ctx.getSource().getServer().getRegistryManager().get(RegistryKeys.BIOME)
 						.getEntry(key).orElseThrow(() -> new CommandException(
@@ -71,15 +68,14 @@ public class BiomeZone extends ZoneType {
 		), ctx);
 	}
 
-	public BiomeZone(World world, Either<RegistryEntry<Biome>, TagKey<Biome>> biome, boolean alwaysCheckSourceDim) {
-		super(world);
+	public BiomeZone(Either<RegistryEntry<Biome>, TagKey<Biome>> biome, boolean alwaysCheckSourceDim) {
 		this.biome = biome;
 		this.alwaysCheckSourceDim = alwaysCheckSourceDim;
 	}
 
 	@Override
 	public boolean contains(BlockPos pos) {
-		var actualBiome = world.getBiome(pos);
+		var actualBiome = getZoneRef().getWorld().getBiome(pos);
 		return biome.map(
 				biome -> actualBiome.getKeyOrValue().equals(biome.getKeyOrValue()),
 				actualBiome::isIn
@@ -88,17 +84,27 @@ public class BiomeZone extends ZoneType {
 
 	@Override
 	public double getSize() {
-		double width = world.getWorldBorder().getSize();
-		int biomeCount = world.getRegistryManager().get(RegistryKeys.BIOME).size();
-		return width * width * world.getHeight() / (biomeCount * biomeCount * biomeCount);
+		double width = getZoneRef().getWorld().getWorldBorder().getSize();
+		int biomeCount = getZoneRef().getWorld().getRegistryManager().get(RegistryKeys.BIOME).size();
+		return width * width * getZoneRef().getWorld().getHeight() / (biomeCount * biomeCount * biomeCount);
 	}
 
 	@Override
-	public ZoneType clone(World otherWorld) {
+	public void setZoneRef(Zone zone) {
+		if (this.getZoneRef() == null || !alwaysCheckSourceDim) {
+			super.setZoneRef(zone);
+		}
+	}
+
+
+	@Override
+	public ZoneType clone() {
 		if (alwaysCheckSourceDim) {
-			return new BiomeZone(world, biome, true);
+			var zone = new BiomeZone(biome, true);
+			zone.setZoneRef(getZoneRef());
+			return zone;
 		} else {
-			return new BiomeZone(otherWorld, biome, false);
+			return new BiomeZone(biome, false);
 		}
 	}
 

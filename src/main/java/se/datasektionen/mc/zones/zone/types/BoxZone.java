@@ -7,7 +7,6 @@ import net.minecraft.command.argument.BlockPosArgumentType;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.util.math.BlockBox;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
 import se.datasektionen.mc.zones.ZoneManagementCommand;
 import se.datasektionen.mc.zones.zone.ZoneRegistry;
 
@@ -15,11 +14,9 @@ import static net.minecraft.server.command.CommandManager.argument;
 
 public class BoxZone extends ZoneType {
 
-	public static Codec<BoxZone> getCodec(World world) {
-		return RecordCodecBuilder.create(instance -> instance.group(
-				BlockBox.CODEC.fieldOf("box").forGetter(zone -> zone.box)
-		).apply(instance, box -> new BoxZone(world, box)));
-	}
+	public static final Codec<BoxZone> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+			BlockBox.CODEC.fieldOf("box").forGetter(zone -> zone.box)
+	).apply(instance, BoxZone::new));
 
 	public static ArgumentBuilder<ServerCommandSource, ?> createCommand(
 			ArgumentBuilder<ServerCommandSource, ?> builder, ZoneManagementCommand.ZoneAdder addZone
@@ -32,7 +29,7 @@ public class BoxZone extends ZoneType {
 					BlockBox box = new BlockBox(
 							pos1.getX(), pos1.getY(), pos1.getZ(), pos2.getX(), pos2.getY(), pos2.getZ()
 					);
-					return addZone.add(world -> new BoxZone(world, box), ctx);
+					return addZone.add(() -> new BoxZone(box), ctx);
 				})
 			)
 		);
@@ -40,8 +37,7 @@ public class BoxZone extends ZoneType {
 
 	protected final BlockBox box;
 
-	public BoxZone(World world, BlockBox box) {
-		super(world);
+	public BoxZone(BlockBox box) {
 		this.box = box;
 	}
 
@@ -56,8 +52,8 @@ public class BoxZone extends ZoneType {
 	}
 
 	@Override
-	public ZoneType clone(World otherWorld) {
-		return new BoxZone(otherWorld, new BlockBox(
+	public ZoneType clone() {
+		return new BoxZone(new BlockBox(
 				box.getMinX(), box.getMinY(), box.getMinZ(),
 				box.getMaxX(), box.getMaxY(), box.getMaxZ()
 		));

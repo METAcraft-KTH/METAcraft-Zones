@@ -20,11 +20,20 @@ import java.util.function.Predicate;
 
 public class ZoneManager extends PersistentState {
 
+	private static boolean loading = false;
+
 	private static final String stateKey = "metacraft-zones";
 	private static final String zonesKey = "zones";
 
 	public static ZoneManager getInstance(MinecraftServer server) {
 		return server.getOverworld().getPersistentStateManager().getOrCreate(getType(server), stateKey);
+	}
+
+	public static Optional<ZoneManager> getInstanceNoStackOverflow(MinecraftServer server) {
+		if (loading) {
+			return Optional.empty();
+		}
+		return Optional.of(getInstance(server));
 	}
 
 	private static PersistentState.Type<ZoneManager> getType(MinecraftServer server) {
@@ -39,9 +48,11 @@ public class ZoneManager extends PersistentState {
 	}
 
 	private static ZoneManager fromNbt(MinecraftServer server, NbtCompound tag) {
+		loading = true;
 		METAcraftZones.LOGGER.info("Previous state found, loading values");
 		ZoneManager settings = new ZoneManager(server);
 		settings.readNbt(tag);
+		loading = false;
 		return settings;
 	}
 

@@ -8,12 +8,9 @@ import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.util.Identifier;
-import net.minecraft.world.World;
 import se.datasektionen.mc.zones.METAcraftZones;
 import se.datasektionen.mc.zones.ZoneManagementCommand;
 import se.datasektionen.mc.zones.zone.types.*;
-
-import java.util.function.Function;
 
 public class ZoneRegistry {
 
@@ -21,19 +18,20 @@ public class ZoneRegistry {
 			RegistryKey.ofRegistry(METAcraftZones.getID("zones"))
 	).buildAndRegister();
 
-	public static final ZoneType<BoxZone> box = register("box", BoxZone::getCodec, BoxZone::createCommand);
-	public static final ZoneType<RegionZone> region = register("region", RegionZone::getCodec, RegionZone::createCommand);
-	public static final ZoneType<SphereZone> sphere = register("sphere", world -> SphereZone.getCodec(
-			world, SphereZone::new
+	public static final ZoneType<BoxZone> box = register("box", BoxZone.CODEC, BoxZone::createCommand);
+	public static final ZoneType<RegionZone> region = register("region", RegionZone.CODEC, RegionZone::createCommand);
+	public static final ZoneType<SphereZone> sphere = register("sphere", SphereZone.getCodec(
+			SphereZone::new
 	), (zoneCreator, ctx) -> SphereZone.createCommand(zoneCreator, ctx, SphereZone::new));
-	public static final ZoneType<CircleZone> circle = register("circle", world -> CircleZone.getCodec(
-			world, CircleZone::new
+	public static final ZoneType<CircleZone> circle = register("circle", CircleZone.getCodec(
+			CircleZone::new
 	), (zoneCreator, ctx) -> SphereZone.createCommand(zoneCreator, ctx, CircleZone::new));
 
-	public static final ZoneType<BiomeZone> biome = register("biome", BiomeZone::getCodec, BiomeZone::createCommand);
-	public static final ZoneType<UnionZone> union = register("union", world -> UnionZone.getCodec(world, UnionZone::new));
-	public static final ZoneType<IntersectZone> intersect = register("intersect", world -> IntersectZone.getCodec(world, IntersectZone::new));
-	public static final ZoneType<NegateZone> negate = register("negate", NegateZone::getCodec);
+	public static final ZoneType<BiomeZone> biome = register("biome", BiomeZone.CODEC, BiomeZone::createCommand);
+	public static final ZoneType<UnionZone> union = register("union", UnionZone.getCodec(UnionZone::new));
+	public static final ZoneType<IntersectZone> intersect = register("intersect", IntersectZone.getCodec(IntersectZone::new));
+	public static final ZoneType<NegateZone> negate = register("negate", NegateZone.CODEC);
+	public static final ZoneType<ZoneZone> zone = register("zone", ZoneZone.CODEC, ZoneZone::createCommand);
 
 
 	public static void init() {
@@ -41,20 +39,20 @@ public class ZoneRegistry {
 	}
 
 	private static <T extends se.datasektionen.mc.zones.zone.types.ZoneType> ZoneType<T> register(
-			String name, Function<World, Codec<T>> codec
+			String name, Codec<T> codec
 	) {
 		return Registry.register(REGISTRY, new Identifier(name), new ZoneType<>(codec, null));
 	}
 
 
 	private static <T extends se.datasektionen.mc.zones.zone.types.ZoneType> ZoneType<T> register(
-			String name, Function<World, Codec<T>> codec, ZoneCommandCreator commandCreator
+			String name, Codec<T> codec, ZoneCommandCreator commandCreator
 	) {
 		return Registry.register(REGISTRY, new Identifier(name), new ZoneType<>(codec, commandCreator));
 	}
 
 	private static <T extends se.datasektionen.mc.zones.zone.types.ZoneType> ZoneType<T> register(
-			String name, Function<World, Codec<T>> codec, SimpleZoneCommandCreator commandCreator
+			String name, Codec<T> codec, SimpleZoneCommandCreator commandCreator
 	) {
 		return register(name, codec, (argumentBuilder, registryAccess, addZone) -> commandCreator.createCommand(argumentBuilder, addZone));
 	}
@@ -77,7 +75,7 @@ public class ZoneRegistry {
 	}
 
 	public record ZoneType<T extends se.datasektionen.mc.zones.zone.types.ZoneType>(
-			Function<World, Codec<T>> codec,
+			Codec<T> codec,
 			ZoneCommandCreator commandCreator
 	) {}
 

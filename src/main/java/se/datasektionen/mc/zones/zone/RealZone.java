@@ -1,5 +1,6 @@
 package se.datasektionen.mc.zones.zone;
 
+import com.mojang.datafixers.util.Either;
 import net.minecraft.nbt.*;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryOps;
@@ -30,6 +31,7 @@ public class RealZone extends Zone {
 	protected String name;
 	protected ZoneType zone;
 	protected final Map<RegistryKey<World>, Zone> remoteDimensions = new HashMap<>();
+	private final List<RegistryKey<World>> remoteWorldsToCheck = new ArrayList<>();
 	protected int priority;
 	protected final Map<ZoneDataType<?>, ZoneData> zoneData;
 	protected final Runnable markNeedsSave;
@@ -123,7 +125,7 @@ public class RealZone extends Zone {
 		).ifPresent(dim -> {
 			nbt.put(DIM, dim);
 		});
-		ZoneType.getRegistryCodec(world).encodeStart(RegistryOps.of(NbtOps.INSTANCE, world.getRegistryManager()), zone).resultOrPartial(
+		ZoneType.REGISTRY_CODEC.encodeStart(RegistryOps.of(NbtOps.INSTANCE, world.getRegistryManager()), zone).resultOrPartial(
 				METAcraftZones.LOGGER::error
 		).ifPresent(zone -> {
 			nbt.put(ZONE, zone);
@@ -158,7 +160,7 @@ public class RealZone extends Zone {
 				METAcraftZones.LOGGER.error("Dimension invalid");
 				return Optional.empty();
 			}
-			return ZoneType.getRegistryCodec(world).parse(RegistryOps.of(NbtOps.INSTANCE, world.getRegistryManager()), nbt.get(ZONE)).resultOrPartial(
+			return ZoneType.REGISTRY_CODEC.parse(RegistryOps.of(NbtOps.INSTANCE, world.getRegistryManager()), nbt.get(ZONE)).resultOrPartial(
 					METAcraftZones.LOGGER::error
 			).map(zone -> {
 				Map<ZoneDataType<?>, ZoneData> dataTypes = new HashMap<>();
@@ -174,20 +176,42 @@ public class RealZone extends Zone {
 				var container = new RealZone(
 						nbt.getString(NAME), world, zone, dataTypes, nbt.getInt(PRIORITY), markNeedsSave
 				);
+				zone.setZoneRef(container);
 
 				NbtList remoteDims = nbt.getList(REMOTE_DIMS, NbtElement.STRING_TYPE);
 				for (NbtElement element : remoteDims) {
 					World.CODEC.parse(NbtOps.INSTANCE, element).resultOrPartial(
 							METAcraftZones.LOGGER::error
-					).flatMap(
-							otherDim -> Optional.ofNullable(server.getWorld(otherDim))
+					).map(
+							otherDim -> {
+								var remoteWorld = server.getWorld(otherDim);
+								if (remoteWorld != null) {
+									return Either.<World, RegistryKey<World>>left(remoteWorld);
+								} else {
+									return Either.<World, RegistryKey<World>>right(otherDim);
+								}
+							}
 					).ifPresent(otherDim -> {
-						container.remoteDimensions.put(otherDim.getRegistryKey(), new RemoteZone(otherDim, container));
+						otherDim.ifLeft(otherWorld -> {
+							container.remoteDimensions.put(otherWorld.getRegistryKey(), new RemoteZone(otherWorld, container));
+						});
+						otherDim.ifRight(container.remoteWorldsToCheck::add);
 					});
 				}
 				return container;
 			});
 		});
+	}
+
+	public void onWorldLoad() {
+		MinecraftServer server = getWorld().getServer();
+		for (var dim : remoteWorldsToCheck) {
+			var world = server.getWorld(dim);
+			if (world != null) {
+				addRemoteDimensionInternal(world);
+			}
+		}
+		remoteWorldsToCheck.clear();
 	}
 
 	@Override
@@ -214,19 +238,25 @@ public class RealZone extends Zone {
 
 	public void addRemoteDimension(World remoteDim) {
 		if (remoteDim.getRegistryKey() != getDim()) {
-			var newContainer = new RemoteZone(remoteDim, this);
-			if (world.getServer() != null) {
-				ZoneManager.getInstance(world.getServer()).addZone(newContainer);
-			}
-			remoteDimensions.put(remoteDim.getRegistryKey(), newContainer);
-			fixDimensionLeukocyte();
+			addRemoteDimensionInternal(remoteDim);
+			markDirty();
 		}
+	}
+
+	private void addRemoteDimensionInternal(World remoteDim) {
+		var newContainer = new RemoteZone(remoteDim, this);
+		if (world.getServer() != null) {
+			ZoneManager.getInstance(world.getServer()).addZone(newContainer);
+		}
+		remoteDimensions.put(remoteDim.getRegistryKey(), newContainer);
+		fixDimensionLeukocyte();
 	}
 
 	public void removeRemoteDimension(World remoteDim) {
 		if (world.getServer() != null) {
 			ZoneManager.getInstance(world.getServer()).removeZone(remoteDimensions.remove(remoteDim.getRegistryKey()));
 			fixDimensionLeukocyte();
+			markDirty();
 		}
 	}
 

@@ -11,25 +11,22 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import se.datasektionen.mc.zones.EntityData;
 import se.datasektionen.mc.zones.ZoneManager;
 import se.datasektionen.mc.zones.zone.Zone;
 
+import java.util.*;
+
 @Mixin(Entity.class)
-public abstract class MixinEntity implements EntityData {
+public abstract class MixinEntity {
 	@Shadow public abstract BlockPos getBlockPos();
 
 	@Shadow @Nullable public abstract MinecraftServer getServer();
 
 	@Shadow private World world;
 	@Shadow public int age;
-	@Unique
-	private Zone currentZone;
 
-	@Override
-	public Zone METAcraft_Zones$getCurrentZone() {
-		return currentZone;
-	}
+	@Unique
+	private final Set<Zone> currentZones = new TreeSet<>();
 
 	@Inject(
 			method = "tick",
@@ -37,23 +34,21 @@ public abstract class MixinEntity implements EntityData {
 	)
 	public void tick(CallbackInfo ci) {
 		if (!world.isClient() && this.age % 100 == 0) {
-			if (currentZone != null && !currentZone.contains(this.getBlockPos())) {
-				currentZone.removeFromZone((Entity) (Object) this);
-				currentZone = null;
+			Set<Zone> removeZones = new HashSet<>();
+			for (Zone currentZone : currentZones) {
+				if (!currentZone.contains(this.getBlockPos())) {
+					currentZone.removeFromZone((Entity) (Object) this);
+					removeZones.add(currentZone);
+				}
 			}
 			for (Zone zone : ZoneManager.getInstance(getServer()).getZones().getZones(this.world.getRegistryKey())) {
-				if (zone == currentZone) {
-					break; //Skips zones with lower priority than the one we are in.
-				}
-				if (zone.contains(this.getBlockPos())) {
-					if (currentZone != null) {
-						currentZone.removeFromZone((Entity) (Object) this);
-					}
-					currentZone = zone;
-					currentZone.addToZone((Entity) (Object) this);
+				if (!currentZones.contains(zone) && zone.contains(this.getBlockPos())) {
+					currentZones.add(zone);
+					zone.addToZone((Entity) (Object) this);
 					break;
 				}
 			}
+			currentZones.removeAll(removeZones);
 		}
 	}
 
@@ -62,10 +57,10 @@ public abstract class MixinEntity implements EntityData {
 		at = @At("HEAD")
 	)
 	public void setRemoved(Entity.RemovalReason reason, CallbackInfo ci) {
-		if (currentZone != null) {
-			currentZone.removeFromZone((Entity) (Object) this);
-			currentZone = null;
+		for (Zone zone : currentZones) {
+			zone.removeFromZone((Entity) (Object) this);
 		}
+		currentZones.clear();
 	}
 
 }

@@ -7,28 +7,24 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.dynamic.Codecs;
-import se.datasektionen.mc.zones.EntityData;
 
-import java.util.*;
+import java.util.Optional;
 
 public class MessageZoneData extends ZoneDataEntityTracking {
 
 	public static final Codec<MessageZoneData> CODEC = RecordCodecBuilder.create(
 			instance -> instance.group(
 					Codecs.TEXT.optionalFieldOf("enterMessage").forGetter(data -> data.enterMessage),
-					Codecs.TEXT.optionalFieldOf("leaveMessage").forGetter(data -> data.leaveMessage),
-					Codec.BOOL.fieldOf("showLeaveMessageWhenEnteringOtherZone").orElse(true).forGetter(data -> data.showLeaveMessageWhenEnteringOtherZone)
+					Codecs.TEXT.optionalFieldOf("leaveMessage").forGetter(data -> data.leaveMessage)
 			).apply(instance, MessageZoneData::new)
 	);
 
 	protected Optional<Text> enterMessage;
 	protected Optional<Text> leaveMessage;
-	protected boolean showLeaveMessageWhenEnteringOtherZone;
 
-	public MessageZoneData(Optional<Text> enterMessage, Optional<Text> leaveMessage, boolean showLeaveMessageWhenEnteringOtherZone) {
+	public MessageZoneData(Optional<Text> enterMessage, Optional<Text> leaveMessage) {
 		this.enterMessage = enterMessage;
 		this.leaveMessage = leaveMessage;
-		this.showLeaveMessageWhenEnteringOtherZone = showLeaveMessageWhenEnteringOtherZone;
 	}
 
 	@Override
@@ -43,19 +39,9 @@ public class MessageZoneData extends ZoneDataEntityTracking {
 	@Override
 	public void onLeave(Entity entity) {
 		if (entity instanceof PlayerEntity player) {
-			TIMER.schedule(new TimerTask() {
-				@Override
-				public void run() {
-					zone.getWorld().getServer().execute(() -> {
-						if (!showLeaveMessageWhenEnteringOtherZone && ((EntityData) entity).METAcraft_Zones$getCurrentZone() != null) {
-							return;
-						}
-						leaveMessage.ifPresent(msg -> {
-							player.sendMessage(msg, false);
-						});
-					});
-				}
-			}, 50);
+			leaveMessage.ifPresent(msg -> {
+				player.sendMessage(msg, false);
+			});
 		}
 	}
 
@@ -69,21 +55,12 @@ public class MessageZoneData extends ZoneDataEntityTracking {
 		markDirty();
 	}
 
-	public void setShowLeaveMessageWhenEnteringOtherZone(boolean showLeaveMessageWhenEnteringOtherZone) {
-		this.showLeaveMessageWhenEnteringOtherZone = showLeaveMessageWhenEnteringOtherZone;
-		markDirty();
-	}
-
 	public Optional<Text> getEnterMessage() {
 		return enterMessage;
 	}
 
 	public Optional<Text> getLeaveMessage() {
 		return leaveMessage;
-	}
-
-	public boolean showLeaveMessageWhenEnteringOtherZone() {
-		return showLeaveMessageWhenEnteringOtherZone;
 	}
 
 	@Override
@@ -100,6 +77,6 @@ public class MessageZoneData extends ZoneDataEntityTracking {
 		leaveMessage.ifPresent(msg -> {
 			text.append(Text.literal("exitMessage=").append(msg).append(","));
 		});
-		return text.append("showLeaveMessageWhenEnteringOtherZone=" + showLeaveMessageWhenEnteringOtherZone + "]");
+		return text;
 	}
 }

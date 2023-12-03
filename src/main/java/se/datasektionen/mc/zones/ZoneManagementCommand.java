@@ -1,7 +1,6 @@
 package se.datasektionen.mc.zones;
 
 import com.google.common.collect.ImmutableList;
-import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.ArgumentBuilder;
@@ -31,6 +30,7 @@ import java.util.Iterator;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static net.minecraft.server.command.CommandManager.argument;
@@ -49,13 +49,12 @@ public class ZoneManagementCommand {
 			literal("extend").then(
 				getZoneCreator(zone(), registryAccess, (zoneCreator, ctx) -> {
 					var zone = getZone(ctx);
-					World world = zone.getWorld();
-					var newZone = zoneCreator.apply(world);
+					var newZone = zoneCreator.get();
 					if (zone.getZone() instanceof UnionZone union) {
 						union.addZone(newZone);
 					} else {
 						ZoneType prevZone = zone.getZone();
-						zone.setZone(new UnionZone(world, prevZone, newZone));
+						zone.setZone(new UnionZone(prevZone, newZone));
 					}
 					ctx.getSource().sendFeedback(
 							() -> Text.literal("Expanded zone " + zone.getName() + " to include " + newZone),
@@ -68,13 +67,12 @@ public class ZoneManagementCommand {
 			literal("restrict-to").then(
 				getZoneCreator(zone(), registryAccess, (zoneCreator, ctx) -> {
 					var zone = getZone(ctx);
-					World world = zone.getWorld();
-					var newZone = zoneCreator.apply(world);
+					var newZone = zoneCreator.get();
 					if (zone.getZone() instanceof IntersectZone intersect) {
 						intersect.addZone(newZone);
 					} else {
 						ZoneType prevZone = zone.getZone();
-						zone.setZone(new IntersectZone(world, prevZone, newZone));
+						zone.setZone(new IntersectZone(prevZone, newZone));
 					}
 					ctx.getSource().sendFeedback(
 							() -> Text.literal("Limited zone " + zone.getName() + " to " + newZone),
@@ -87,7 +85,11 @@ public class ZoneManagementCommand {
 			literal("negate").then(
 				zone().executes(ctx -> {
 					var zone = getZone(ctx);
-					zone.setZone(new NegateZone(zone.getWorld(), zone.getZone()));
+					if (zone.getZone() instanceof NegateZone negate) {
+						zone.setZone(negate.getZone());
+					} else {
+						zone.setZone(new NegateZone(zone.getZone()));
+					}
 					ctx.getSource().sendFeedback(() -> Text.literal("Negated " + zone.getName()), true);
 					return 1;
 				})
@@ -161,36 +163,7 @@ public class ZoneManagementCommand {
 		).then(
 			messageCommand("entry-message", MessageZoneData::getEnterMessage, MessageZoneData::setEnterMessage)
 		).then(
-			messageCommand("exit-message", MessageZoneData::getLeaveMessage, MessageZoneData::setLeaveMessage).then(
-				literal("show-on-other-entry").then(
-					zone().then(
-							argument("should-show", BoolArgumentType.bool()).executes(ctx -> {
-								boolean newState = BoolArgumentType.getBool(ctx, "should-show");
-								getZone(ctx).getOrCreate(ZoneDataRegistry.MESSAGE).setShowLeaveMessageWhenEnteringOtherZone(
-									newState
-								);
-								ctx.getSource().sendFeedback(
-										() -> Text.literal("Set exit display on other entry to " + newState),
-										true
-								);
-								return 1;
-							})
-					).executes(ctx -> {
-						getZone(ctx).get(ZoneDataRegistry.MESSAGE).ifPresentOrElse(data -> {
-							ctx.getSource().sendFeedback(
-									() -> Text.literal("Value: " + data.showLeaveMessageWhenEnteringOtherZone()),
-									false
-							);
-						}, () -> {
-							ctx.getSource().sendFeedback(
-									() -> Text.literal("No data"),
-									false
-							);
-						});
-						return 1;
-					})
-				)
-			)
+			messageCommand("exit-message", MessageZoneData::getLeaveMessage, MessageZoneData::setLeaveMessage)
 		);
 	}
 
@@ -312,7 +285,7 @@ public class ZoneManagementCommand {
 	) {
 		return getZoneCreator(builder, registryAccess, (zoneCreator, ctx) -> {
 			World world = ctx.getSource().getWorld();
-			ZoneType zone = zoneCreator.apply(world);
+			ZoneType zone = zoneCreator.get();
 			String name = StringArgumentType.getString(ctx, NAME);
 			if (getSettings(ctx).containsZone(name)) {
 				throw new CommandException(Text.literal("Another zone already exists with that name."));
@@ -320,6 +293,7 @@ public class ZoneManagementCommand {
 			RealZone container = new RealZone(
 					name, world, zone, new HashMap<>(), 0, getSettings(ctx)::markDirty
 			);
+			zone.setZoneRef(container);
 			getSettings(ctx).addZone(container);
 			ctx.getSource().sendFeedback(
 					() -> Text.literal("Added " + container.getName()), true
@@ -345,7 +319,7 @@ public class ZoneManagementCommand {
 
 	@FunctionalInterface
 	public interface ZoneAdder {
-		int add(Function<World, ZoneType> zoneCreator, CommandContext<ServerCommandSource> ctx);
+		int add(Supplier<ZoneType> zoneCreator, CommandContext<ServerCommandSource> ctx);
 	}
 
 	public static ZoneManager getSettings(CommandContext<ServerCommandSource> ctx) {

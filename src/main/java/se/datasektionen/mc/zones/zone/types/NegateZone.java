@@ -3,22 +3,24 @@ package se.datasektionen.mc.zones.zone.types;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import se.datasektionen.mc.zones.zone.Zone;
 import se.datasektionen.mc.zones.zone.ZoneRegistry;
 
 public class NegateZone extends ZoneType {
 
 	protected final ZoneType zone;
 
-	public static Codec<NegateZone> getCodec(World world) {
-		return RecordCodecBuilder.create(instance -> instance.group(
-				getRegistryCodec(world).fieldOf("zone").forGetter(zone -> zone.zone)
-		).apply(instance, (zone) -> new NegateZone(world, zone)));
+	public static final Codec<NegateZone> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+			REGISTRY_CODEC.fieldOf("zone").forGetter(zone -> zone.zone)
+	).apply(instance, NegateZone::new));
+
+	public NegateZone(ZoneType zone) {
+		this.zone = zone;
+		this.setZoneRef(zone.getZoneRef());
 	}
 
-	public NegateZone(World world, ZoneType zone) {
-		super(world);
-		this.zone = zone;
+	public ZoneType getZone() {
+		return zone;
 	}
 
 	@Override
@@ -27,13 +29,19 @@ public class NegateZone extends ZoneType {
 	}
 
 	@Override
+	public void setZoneRef(Zone zone) {
+		this.zone.setZoneRef(zone);
+		super.setZoneRef(zone);
+	}
+
+	@Override
 	public double getSize() {
 		return zone.getSize();
 	}
 
 	@Override
-	public ZoneType clone(World otherWorld) {
-		return new NegateZone(otherWorld, zone.clone(otherWorld));
+	public ZoneType clone() {
+		return new NegateZone(zone.clone());
 	}
 
 	@Override

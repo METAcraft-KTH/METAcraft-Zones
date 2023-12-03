@@ -16,7 +16,7 @@ public class ZoneDataRegistry {
 
 	public static final ZoneDataType<MessageZoneData> MESSAGE = Registry.register(
 			REGISTRY, METAcraftZones.getID("message"),
-			new ZoneDataType<>(MessageZoneData.CODEC, () -> new MessageZoneData(Optional.empty(), Optional.empty(), true))
+			new ZoneDataType<>(MessageZoneData.CODEC, () -> new MessageZoneData(Optional.empty(), Optional.empty()))
 	);
 
 	public static void init() {

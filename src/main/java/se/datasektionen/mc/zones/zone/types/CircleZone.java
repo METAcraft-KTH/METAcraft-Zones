@@ -8,31 +8,30 @@ import net.minecraft.command.argument.BlockPosArgumentType;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
-import net.minecraft.world.World;
-import org.apache.commons.lang3.function.TriFunction;
 import se.datasektionen.mc.zones.ZoneManagementCommand;
 import se.datasektionen.mc.zones.zone.ZoneRegistry;
+
+import java.util.function.BiFunction;
 
 import static net.minecraft.server.command.CommandManager.argument;
 
 public class CircleZone extends ZoneType {
 
-	public static <T extends CircleZone> Codec<T> getCodec(World world, TriFunction<World, BlockPos, Double, T> creator) {
+	public static <T extends CircleZone> Codec<T> getCodec(BiFunction<BlockPos, Double, T> creator) {
 		return RecordCodecBuilder.create(instance -> instance.group(
 				BlockPos.CODEC.fieldOf("center").forGetter(zone -> zone.center),
 				Codec.DOUBLE.fieldOf("radius").forGetter(zone -> zone.radius)
-		).apply(instance, (pos, radius) -> creator.apply(world, pos, radius)));
+		).apply(instance, creator));
 	}
 
 	public static ArgumentBuilder<ServerCommandSource, ?> createCommand(
 			ArgumentBuilder<ServerCommandSource, ?> builder, ZoneManagementCommand.ZoneAdder addZone,
-			TriFunction<World, BlockPos, Double, ? extends CircleZone> creator
+			BiFunction<BlockPos, Double, ? extends CircleZone> creator
 	) {
 		return builder.then(
 				argument("center", BlockPosArgumentType.blockPos()).then(
 						argument("radius", DoubleArgumentType.doubleArg(0)).executes(ctx -> {
-							return addZone.add(world -> creator.apply(
-									world,
+							return addZone.add(() -> creator.apply(
 									BlockPosArgumentType.getBlockPos(ctx,"center"),
 									DoubleArgumentType.getDouble(ctx,"radius")
 							), ctx);
@@ -44,8 +43,7 @@ public class CircleZone extends ZoneType {
 	protected BlockPos center;
 	protected double radius;
 
-	public CircleZone(World world, BlockPos center, double radius) {
-		super(world);
+	public CircleZone(BlockPos center, double radius) {
 		this.center = center;
 		this.radius = radius;
 	}
@@ -57,12 +55,12 @@ public class CircleZone extends ZoneType {
 
 	@Override
 	public double getSize() {
-		return radius * radius * Math.PI * world.getHeight();
+		return radius * radius * Math.PI * getZoneRef().getWorld().getHeight();
 	}
 
 	@Override
-	public ZoneType clone(World otherWorld) {
-		return new CircleZone(otherWorld, center.toImmutable(), radius);
+	public ZoneType clone() {
+		return new CircleZone(center.toImmutable(), radius);
 	}
 
 	@Override
