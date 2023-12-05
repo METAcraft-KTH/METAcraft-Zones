@@ -59,12 +59,12 @@ public class CircleZone extends ZoneType {
 	}
 
 	@Override
-	public ZoneType clone() {
+	public ZoneType copy() {
 		return new CircleZone(center.toImmutable(), radius);
 	}
 
 	@Override
-	public ZoneRegistry.ZoneType<? extends CircleZone> getType() {
+	public ZoneRegistry.ZoneTypeType<? extends CircleZone> getType() {
 		return ZoneRegistry.circle;
 	}
 

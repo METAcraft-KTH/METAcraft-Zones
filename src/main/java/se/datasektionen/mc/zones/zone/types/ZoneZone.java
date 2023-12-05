@@ -71,7 +71,7 @@ public class ZoneZone extends ZoneType {
 	}
 
 	@Override
-	public ZoneType clone() {
+	public ZoneType copy() {
 		return new ZoneZone(zone);
 	}
 
@@ -81,7 +81,7 @@ public class ZoneZone extends ZoneType {
 	}
 
 	@Override
-	public ZoneRegistry.ZoneType<?> getType() {
+	public ZoneRegistry.ZoneTypeType<?> getType() {
 		return ZoneRegistry.zone;
 	}
 }

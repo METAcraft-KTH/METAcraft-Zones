@@ -63,12 +63,12 @@ public class RegionZone extends ZoneType {
 	}
 
 	@Override
-	public ZoneType clone() {
+	public ZoneType copy() {
 		return new RegionZone(minX, minZ, maxX, maxZ);
 	}
 
 	@Override
-	public ZoneRegistry.ZoneType<? extends RegionZone> getType() {
+	public ZoneRegistry.ZoneTypeType<? extends RegionZone> getType() {
 		return ZoneRegistry.region;
 	}
 

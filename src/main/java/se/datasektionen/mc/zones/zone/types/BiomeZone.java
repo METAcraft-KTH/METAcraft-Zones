@@ -35,7 +35,7 @@ public class BiomeZone extends ZoneType {
 
 	public static final Codec<BiomeZone> CODEC = RecordCodecBuilder.create(instance -> instance.group(
 			BIOME_CODEC.fieldOf("biome").forGetter(zone -> zone.biome),
-			Codec.BOOL.fieldOf("alwaysCheckSourceDim").forGetter(zone -> zone.alwaysCheckSourceDim)
+			Codec.BOOL.fieldOf("alwaysCheckSourceDim").orElse(false).forGetter(zone -> zone.alwaysCheckSourceDim)
 	).apply(instance, BiomeZone::new));
 
 
@@ -98,7 +98,7 @@ public class BiomeZone extends ZoneType {
 
 
 	@Override
-	public ZoneType clone() {
+	public ZoneType copy() {
 		if (alwaysCheckSourceDim) {
 			var zone = new BiomeZone(biome, true);
 			zone.setZoneRef(getZoneRef());
@@ -109,7 +109,7 @@ public class BiomeZone extends ZoneType {
 	}
 
 	@Override
-	public ZoneRegistry.ZoneType<?> getType() {
+	public ZoneRegistry.ZoneTypeType<?> getType() {
 		return ZoneRegistry.biome;
 	}
 

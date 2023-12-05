@@ -9,11 +9,9 @@ public abstract class ZoneType {
 
 	/**
 	 * WARNING, this codec will require RegistryOps!
-	 * @param zoneRef The zone that this is a type for.
-	 * @return The codec for the zone type.
 	 */
 	public static Codec<ZoneType> REGISTRY_CODEC = ZoneRegistry.REGISTRY.getCodec().dispatch(
-			ZoneType::getType, ZoneRegistry.ZoneType::codec
+			ZoneType::getType, ZoneRegistry.ZoneTypeType::codec
 	);
 
 	private Zone zoneRef;
@@ -31,7 +29,7 @@ public abstract class ZoneType {
 	//Estimation of the zone size. Used to make smaller zones have higher priority by default. Does not have to be very accurate.
 	public abstract double getSize();
 
-	public abstract ZoneType clone();
+	public abstract ZoneType copy();
 
-	public abstract ZoneRegistry.ZoneType<?> getType();
+	public abstract ZoneRegistry.ZoneTypeType<?> getType();
 }

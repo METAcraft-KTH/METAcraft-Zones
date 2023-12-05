@@ -20,12 +20,12 @@ public class SphereZone extends CircleZone {
 	}
 
 	@Override
-	public ZoneType clone() {
+	public ZoneType copy() {
 		return new SphereZone(center.toImmutable(), radius);
 	}
 
 	@Override
-	public ZoneRegistry.ZoneType<? extends SphereZone> getType() {
+	public ZoneRegistry.ZoneTypeType<? extends SphereZone> getType() {
 		return ZoneRegistry.sphere;
 	}
 

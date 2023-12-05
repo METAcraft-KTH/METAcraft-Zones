@@ -20,7 +20,7 @@ public class RemoteZone extends Zone {
 	public RemoteZone(World world, RealZone container) {
 		this.world = world;
 		this.container = container;
-		this.zone = container.getZone().clone();
+		this.zone = container.getZone().copy();
 		this.zone.setZoneRef(this);
 	}
 

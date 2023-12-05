@@ -42,12 +42,12 @@ public class UnionZone extends CombinedZone {
 	}
 
 	@Override
-	public ZoneType clone(List<ZoneType> zones) {
+	public ZoneType copy(List<ZoneType> zones) {
 		return new UnionZone(zones);
 	}
 
 	@Override
-	public ZoneRegistry.ZoneType<?> getType() {
+	public ZoneRegistry.ZoneTypeType<?> getType() {
 		return ZoneRegistry.union;
 	}
 }

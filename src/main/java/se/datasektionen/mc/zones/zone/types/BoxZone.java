@@ -52,7 +52,7 @@ public class BoxZone extends ZoneType {
 	}
 
 	@Override
-	public ZoneType clone() {
+	public ZoneType copy() {
 		return new BoxZone(new BlockBox(
 				box.getMinX(), box.getMinY(), box.getMinZ(),
 				box.getMaxX(), box.getMaxY(), box.getMaxZ()
@@ -60,7 +60,7 @@ public class BoxZone extends ZoneType {
 	}
 
 	@Override
-	public ZoneRegistry.ZoneType<? extends BoxZone> getType() {
+	public ZoneRegistry.ZoneTypeType<? extends BoxZone> getType() {
 		return ZoneRegistry.box;
 	}
 
