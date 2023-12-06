@@ -13,6 +13,7 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockBox;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3i;
+import net.minecraft.world.World;
 import se.datasektionen.mc.zones.METAcraftZones;
 import se.datasektionen.mc.zones.ZoneManagementCommand;
 import se.datasektionen.mc.zones.zone.types.*;
@@ -64,6 +65,10 @@ public class ZoneRegistry {
 	public static final ZoneTypeType<ZoneZone> zone = register(
 			"zone", ZoneZone.CODEC, ZoneZone::createCommand,
 			() -> new ZoneZone("missingno")
+	);
+	public static final ZoneTypeType<DimensionLimiter> dimension = register(
+			"dimension", DimensionLimiter.CODEC, DimensionLimiter::createCommand,
+			() -> new DimensionLimiter(World.OVERWORLD)
 	);
 
 

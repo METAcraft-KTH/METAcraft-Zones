@@ -53,7 +53,7 @@ public abstract class CombinedZone extends ZoneType {
 	public CombinedZone(List<ZoneType> zones) {
 		this.zones = zones;
 		if (zones.isEmpty()) {
-			throw new IllegalStateException("Don't create an empty combined zone!");
+			throw new IllegalArgumentException("Don't create an empty combined zone!");
 		}
 		this.setZoneRef(zones.get(0).getZoneRef());
 	}

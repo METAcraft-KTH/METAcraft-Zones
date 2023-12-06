@@ -76,10 +76,14 @@ public class ZoneCommandUtils {
 
 	public static ZoneType getZoneType(CommandContext<ServerCommandSource> ctx, String arg) {
 		NbtCompound nbt = NbtCompoundArgumentType.getNbtCompound(ctx, arg);
-		var result = ZoneType.REGISTRY_CODEC.parse(RegistryOps.of(NbtOps.INSTANCE, ctx.getSource().getRegistryManager()), nbt);
-		return result.result().orElseThrow(() -> new CommandException(
-			Text.literal(result.error().map(DataResult.PartialResult::message).orElse("An unknown error occurred."))
-		));
+		try {
+			var result = ZoneType.REGISTRY_CODEC.parse(RegistryOps.of(NbtOps.INSTANCE, ctx.getSource().getRegistryManager()), nbt);
+			return result.result().orElseThrow(() -> new CommandException(
+					Text.literal(result.error().map(DataResult.PartialResult::message).orElse("An unknown error occurred."))
+			));
+		} catch (IllegalArgumentException e) {
+			throw new CommandException(Text.literal(e.getMessage()));
+		}
 	}
 
 }
