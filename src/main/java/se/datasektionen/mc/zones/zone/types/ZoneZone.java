@@ -13,6 +13,7 @@ import se.datasektionen.mc.zones.zone.Zone;
 import se.datasektionen.mc.zones.zone.ZoneRegistry;
 
 import java.util.Optional;
+import java.util.function.Function;
 
 public class ZoneZone extends ZoneType {
 
@@ -45,10 +46,13 @@ public class ZoneZone extends ZoneType {
 		this(zone, 0);
 	}
 
-	protected Optional<Zone> getZone() {
-		if (this.getZoneRef().getName().equals(zone)) {
-			METAcraftZones.LOGGER.error("Warning, zone stack overflow detected in zone " + zone + "!");
-			return Optional.empty();
+	private boolean checkingZone = false;
+
+	//This is weird to help guard against stack overflows.
+	protected <T> Function<Function<Zone, T>, Optional<T>> getZone() {
+		if (checkingZone) {
+			METAcraftZones.LOGGER.error("Warning, zone stack overflow detected in zone " + getZoneRef().getName() + "!");
+			return getter -> Optional.empty();
 		}
 		if (zoneCache == null && getZoneRef() != null) {
 			ZoneManager.getInstanceNoStackOverflow(getZoneRef().getWorld().getServer()).ifPresent(zoneManager -> {
@@ -62,17 +66,22 @@ public class ZoneZone extends ZoneType {
 				}
 			});
 		}
-		return Optional.ofNullable(zoneCache);
+		return getter -> {
+			checkingZone = true;
+			var opt = Optional.ofNullable(zoneCache).map(getter);
+			checkingZone = false;
+			return opt;
+		};
 	}
 
 	@Override
 	public boolean contains(BlockPos pos) {
-		return getZone().map(zone -> zone.contains(pos)).orElse(false);
+		return this.<Boolean>getZone().apply(zone -> zone.contains(pos)).orElse(false);
 	}
 
 	@Override
 	public double getSize() {
-		return getZone().map(zone -> zone.getZone().getSize()).orElse(size);
+		return this.<Double>getZone().apply(zone -> zone.getZone().getSize()).orElse(size);
 	}
 
 	@Override
