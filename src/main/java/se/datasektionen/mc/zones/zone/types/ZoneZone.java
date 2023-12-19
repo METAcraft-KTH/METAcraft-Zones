@@ -5,6 +5,7 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.util.math.BlockPos;
+import se.datasektionen.mc.zones.METAcraftZones;
 import se.datasektionen.mc.zones.ZoneCommandUtils;
 import se.datasektionen.mc.zones.ZoneManagementCommand;
 import se.datasektionen.mc.zones.ZoneManager;
@@ -45,6 +46,10 @@ public class ZoneZone extends ZoneType {
 	}
 
 	protected Optional<Zone> getZone() {
+		if (this.getZoneRef().getName().equals(zone)) {
+			METAcraftZones.LOGGER.error("Warning, zone stack overflow detected in zone " + zone + "!");
+			return Optional.empty();
+		}
 		if (zoneCache == null && getZoneRef() != null) {
 			ZoneManager.getInstanceNoStackOverflow(getZoneRef().getWorld().getServer()).ifPresent(zoneManager -> {
 				zoneCache = zoneManager.getZone(zone);
