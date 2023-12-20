@@ -4,9 +4,8 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.text.MutableText;
+import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.Text;
-import net.minecraft.util.dynamic.Codecs;
 
 import java.util.Optional;
 
@@ -14,24 +13,30 @@ public class MessageZoneData extends ZoneDataEntityTracking {
 
 	public static final Codec<MessageZoneData> CODEC = RecordCodecBuilder.create(
 			instance -> instance.group(
-					Codecs.TEXT.optionalFieldOf("enterMessage").forGetter(data -> data.enterMessage),
-					Codecs.TEXT.optionalFieldOf("leaveMessage").forGetter(data -> data.leaveMessage)
+					Codec.STRING.optionalFieldOf("enterCommand").forGetter(data -> data.enterCommand),
+					Codec.STRING.optionalFieldOf("leaveCommand").forGetter(data -> data.leaveCommand)
 			).apply(instance, MessageZoneData::new)
 	);
 
-	protected Optional<Text> enterMessage;
-	protected Optional<Text> leaveMessage;
+	protected Optional<String> enterCommand;
+	protected Optional<String> leaveCommand;
 
-	public MessageZoneData(Optional<Text> enterMessage, Optional<Text> leaveMessage) {
-		this.enterMessage = enterMessage;
-		this.leaveMessage = leaveMessage;
+	public MessageZoneData(Optional<String> enterCommand, Optional<String> leaveCommand) {
+		this.enterCommand = enterCommand;
+		this.leaveCommand = leaveCommand;
+	}
+
+	private ServerCommandSource createFromPlayer(PlayerEntity player) {
+		return player.getCommandSource().withLevel(2).withSilent();
 	}
 
 	@Override
 	public void onEnter(Entity entity) {
 		if (entity instanceof PlayerEntity player) {
-			enterMessage.ifPresent(msg -> {
-				player.sendMessage(msg, false);
+			enterCommand.ifPresent(cmd -> {
+				player.getServer().getCommandManager().executeWithPrefix(
+						createFromPlayer(player), cmd
+				);
 			});
 		}
 	}
@@ -39,28 +44,30 @@ public class MessageZoneData extends ZoneDataEntityTracking {
 	@Override
 	public void onLeave(Entity entity) {
 		if (entity instanceof PlayerEntity player) {
-			leaveMessage.ifPresent(msg -> {
-				player.sendMessage(msg, false);
+			leaveCommand.ifPresent(cmd -> {
+				player.getServer().getCommandManager().executeWithPrefix(
+						createFromPlayer(player), cmd
+				);
 			});
 		}
 	}
 
-	public void setEnterMessage(Optional<Text> text) {
-		enterMessage = text;
+	public void setEnterCommand(Optional<String> cmd) {
+		enterCommand = cmd;
 		markDirty();
 	}
 
-	public void setLeaveMessage(Optional<Text> text) {
-		leaveMessage = text;
+	public void setLeaveCommand(Optional<String> cmd) {
+		leaveCommand = cmd;
 		markDirty();
 	}
 
-	public Optional<Text> getEnterMessage() {
-		return enterMessage;
+	public Optional<String> getEnterCommand() {
+		return enterCommand;
 	}
 
-	public Optional<Text> getLeaveMessage() {
-		return leaveMessage;
+	public Optional<String> getLeaveCommand() {
+		return leaveCommand;
 	}
 
 	@Override
@@ -69,14 +76,15 @@ public class MessageZoneData extends ZoneDataEntityTracking {
 	}
 
 	@Override
-	public Text toText() {
-		MutableText text = Text.literal("MessageZoneData[");
-		enterMessage.ifPresent(msg -> {
-			text.append(Text.literal("enterMessage=").append(msg).append(","));
+	public String toString() {
+		StringBuilder text = new StringBuilder("MessageZoneData[");
+		enterCommand.ifPresent(cmd -> {
+			text.append(Text.literal("enterMessage=").append(cmd).append(","));
 		});
-		leaveMessage.ifPresent(msg -> {
-			text.append(Text.literal("exitMessage=").append(msg).append(","));
+		leaveCommand.ifPresent(cmd -> {
+			text.append(Text.literal("exitMessage=").append(cmd).append(","));
 		});
-		return text;
+		text.replace(text.length()-1, text.length(), "]");
+		return text.toString();
 	}
 }

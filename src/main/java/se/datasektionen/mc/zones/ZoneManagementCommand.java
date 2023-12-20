@@ -1,21 +1,28 @@
 package se.datasektionen.mc.zones;
 
 import com.google.common.collect.ImmutableList;
+import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.suggestion.SuggestionProvider;
+import com.mojang.brigadier.tree.CommandNode;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.CommandRegistryAccess;
+import net.minecraft.command.CommandSource;
 import net.minecraft.command.argument.DimensionArgumentType;
-import net.minecraft.command.argument.TextArgumentType;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.world.World;
+import org.apache.commons.lang3.mutable.MutableInt;
+import se.datasektionen.mc.zones.mixin.AccessorStringRange;
+import se.datasektionen.mc.zones.mixin.AccessorSuggestion;
 import se.datasektionen.mc.zones.zone.RealZone;
 import se.datasektionen.mc.zones.zone.ZoneRegistry;
 import se.datasektionen.mc.zones.zone.data.MessageZoneData;
@@ -40,7 +47,10 @@ public class ZoneManagementCommand {
 
 	public static final String NAME = "name";
 
-	static void registerCommand(LiteralArgumentBuilder<ServerCommandSource> builder, CommandRegistryAccess registryAccess) {
+	static void registerCommand(
+		LiteralArgumentBuilder<ServerCommandSource> builder, CommandRegistryAccess registryAccess,
+		CommandDispatcher<ServerCommandSource> dispatcher
+	) {
 		builder.then(
 			literal("create").then(
 				createCreateCommandsFromRegistry(argument(NAME, StringArgumentType.string()), registryAccess)
@@ -161,9 +171,9 @@ public class ZoneManagementCommand {
 				return 1;
 			})
 		).then(
-			messageCommand("entry-message", MessageZoneData::getEnterMessage, MessageZoneData::setEnterMessage)
+			messageCommand("entry-command", MessageZoneData::getEnterCommand, MessageZoneData::setEnterCommand, dispatcher)
 		).then(
-			messageCommand("exit-message", MessageZoneData::getLeaveMessage, MessageZoneData::setLeaveMessage)
+			messageCommand("exit-command", MessageZoneData::getLeaveCommand, MessageZoneData::setLeaveCommand, dispatcher)
 		);
 	}
 
@@ -178,10 +188,83 @@ public class ZoneManagementCommand {
 		return full;
 	}
 
+
+	@FunctionalInterface
+	public interface PassCommand {
+		int run(CommandContext<ServerCommandSource> context, String command) throws CommandSyntaxException;
+	}
+
+	public static SuggestionProvider<ServerCommandSource> getCommandSuggest(
+			int pos, CommandDispatcher<ServerCommandSource> dispatcher
+	) {
+		return (ctx, suggestionsBuilder) -> {
+			StringBuilder builder = new StringBuilder();
+			int startPos = ctx.getNodes().get(ctx.getNodes().size() - pos).getRange().getStart();
+			for (int i = pos; i > 0; i--) {
+				builder.append(StringArgumentType.escapeIfRequired(
+						StringArgumentType.getString(
+								ctx, ctx.getNodes().get(ctx.getNodes().size() - i).getNode().getName()
+						)
+				)).append(" ");
+			}
+			var result = dispatcher.parse(builder.toString(), ctx.getSource());
+			return dispatcher.getCompletionSuggestions(result).thenApply(suggestions -> {
+				MutableInt totalOffset = new MutableInt(0);
+				suggestions.getList().forEach(suggestion -> {
+					var newString = StringArgumentType.escapeIfRequired(suggestion.getText());
+					int offset = newString.length() - suggestion.getText().length();
+					((AccessorSuggestion) suggestion).setText(newString);
+					((AccessorStringRange) suggestion.getRange()).setStart(suggestion.getRange().getStart()+startPos);
+					((AccessorStringRange) suggestion.getRange()).setEnd(suggestion.getRange().getEnd()+startPos + offset);
+					totalOffset.setValue(Math.max(offset, totalOffset.getValue()));
+				});
+				((AccessorStringRange) suggestions.getRange()).setStart(suggestions.getRange().getStart()+startPos);
+				((AccessorStringRange) suggestions.getRange()).setEnd(suggestions.getRange().getEnd()+startPos + totalOffset.getValue());
+				return suggestions;
+			});
+		};
+	}
+
+	public static final SuggestionProvider<ServerCommandSource> ROOT_COMMAND_SUGGEST = (ctx, suggestionsBuilder) -> {
+		return CommandSource.suggestMatching(
+				ctx.getRootNode().getChildren().stream().map(CommandNode::getName), suggestionsBuilder
+		);
+	};
+
+	public static ArgumentBuilder<ServerCommandSource, ?> command(
+			String prefix, int maxLength, CommandDispatcher<ServerCommandSource> dispatcher, PassCommand passCommand
+	) {
+		ArgumentBuilder<ServerCommandSource, ?> current = argument("the_rest", StringArgumentType.greedyString()).executes(ctx -> {
+			StringBuilder builder = new StringBuilder(StringArgumentType.getString(ctx, prefix + "0"));
+			for (int j = 1; j <= maxLength; j++) {
+				builder.append(" ").append(StringArgumentType.getString(ctx, prefix + j));
+			}
+			builder.append(" ").append(StringArgumentType.getString(ctx, "the_rest"));
+			return passCommand.run(ctx, builder.toString());
+		});
+		for (int i = maxLength; i > 0; i--) {
+			int argsThusFar = i;
+			var newBottom = argument(
+					prefix + i, StringArgumentType.string()
+			).suggests(getCommandSuggest(i, dispatcher)).executes(ctx -> {
+				StringBuilder builder = new StringBuilder(StringArgumentType.getString(ctx, prefix + "0"));
+				for (int j = 1; j <= argsThusFar; j++) {
+					builder.append(" ").append(StringArgumentType.getString(ctx, prefix + j));
+				}
+				return passCommand.run(ctx, builder.toString());
+			});
+			current = newBottom.then(current);
+		}
+		return argument(prefix + "0", StringArgumentType.string()).suggests(ROOT_COMMAND_SUGGEST).executes(ctx -> {
+			return passCommand.run(ctx, StringArgumentType.getString(ctx, prefix + "0"));
+		}).then(current);
+	}
+
 	static ArgumentBuilder<ServerCommandSource, ?> messageCommand(
 			String name,
-			Function<MessageZoneData, Optional<Text>> messageGetter,
-			BiConsumer<MessageZoneData, Optional<Text>> messageSetter
+			Function<MessageZoneData, Optional<String>> messageGetter,
+			BiConsumer<MessageZoneData, Optional<String>> messageSetter,
+			CommandDispatcher<ServerCommandSource> dispatcher
 	) {
 		return literal(name).then(
 			literal("get").then(
@@ -198,15 +281,14 @@ public class ZoneManagementCommand {
 		).then(
 			literal("set").then(
 				zone().then(
-					argument("text", TextArgumentType.text()).executes(ctx -> {
-						var text = TextArgumentType.getTextArgument(ctx,"text");
+					command("command", 10, dispatcher, (ctx, command) -> {
 						var zone = getZone(ctx);
 						messageSetter.accept(
-							zone.getOrCreate(ZoneDataRegistry.MESSAGE),
-							Optional.of(text)
+								zone.getOrCreate(ZoneDataRegistry.MESSAGE),
+								Optional.of(command)
 						);
 						ctx.getSource().sendFeedback(
-								() -> Text.literal("Set " + name + " in zone " + zone.getName() + " to ").append(text),
+								() -> Text.literal("Set " + name + " in zone " + zone.getName() + " to " + command),
 								true
 						);
 						return 1;

@@ -3,6 +3,8 @@
 	"package": "se.datasektionen.mc.zones.mixin",
 	"compatibilityLevel": "JAVA_17",
 	"mixins": [
+		"AccessorStringRange",
+		"AccessorSuggestion",
 		"MixinEntity"
 	],
 	"injectors": {
