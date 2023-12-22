@@ -9,16 +9,24 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.mojang.brigadier.tree.CommandNode;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.command.CommandSource;
 import net.minecraft.command.argument.DimensionArgumentType;
+import net.minecraft.command.argument.NbtCompoundArgumentType;
+import net.minecraft.entity.SpawnGroup;
+import net.minecraft.nbt.NbtElement;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.NbtString;
+import net.minecraft.predicate.entity.EntityPredicate;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
+import net.minecraft.util.StringIdentifiable;
 import net.minecraft.world.World;
 import org.apache.commons.lang3.mutable.MutableInt;
 import se.datasektionen.mc.zones.mixin.AccessorStringRange;
@@ -46,6 +54,14 @@ import static net.minecraft.server.command.CommandManager.literal;
 public class ZoneManagementCommand {
 
 	public static final String NAME = "name";
+
+	public static final SimpleCommandExceptionType INVALID_SPAWN_GROUP = new SimpleCommandExceptionType(
+			Text.literal("Invalid Spawn Group")
+	);
+
+	public static final SuggestionProvider<ServerCommandSource> SUGGEST_SPAWN_GROUP = (ctx, builder) -> {
+		return CommandSource.suggestMatching(StringIdentifiable.toKeyable(SpawnGroup.values()).keys(NbtOps.INSTANCE).map(NbtElement::asString), builder);
+	};
 
 	static void registerCommand(
 		LiteralArgumentBuilder<ServerCommandSource> builder, CommandRegistryAccess registryAccess,
@@ -174,8 +190,157 @@ public class ZoneManagementCommand {
 			messageCommand("entry-command", MessageZoneData::getEnterCommand, MessageZoneData::setEnterCommand, dispatcher)
 		).then(
 			messageCommand("exit-command", MessageZoneData::getLeaveCommand, MessageZoneData::setLeaveCommand, dispatcher)
+		).then(
+			literal("spawns").then(
+				literal("add").then(
+					zone().then(
+						spawnGroup("spawnGroup").then(
+							argument("data", NbtCompoundArgumentType.nbtCompound()).executes(ctx -> {
+								var zone = getZone(ctx);
+								SpawnGroup spawnGroup = getSpawnGroup(ctx, "spawnGroup");
+								var nbt = NbtCompoundArgumentType.getNbtCompound(ctx, "data");
+								return BetterSpawnEntry.CODEC.parse(NbtOps.INSTANCE, nbt).resultOrPartial(
+										err -> ctx.getSource().sendError(Text.literal(err))
+								).map(data -> {
+									var spawnData = zone.getOrCreate(ZoneDataRegistry.SPAWN);
+									spawnData.getSpawns().put(spawnGroup, data);
+									spawnData.markDirty();
+									ctx.getSource().sendFeedback(() -> Text.literal("Added spawn to " + zone.getName()), true);
+									return 1;
+								}).orElse(0);
+							})
+						)
+					)
+				)
+			).then(
+				literal("remove").then(
+					zone().then(
+						spawnGroup("spawnGroup").then(
+							argument("index", IntegerArgumentType.integer(0)).executes(ctx -> {
+								int index = IntegerArgumentType.getInteger(ctx, "index");
+								var spawnGroup = getSpawnGroup(ctx, "spawnGroup");
+								var zone = getZone(ctx);
+								return zone.get(ZoneDataRegistry.SPAWN).map(data -> {
+									if (index >= data.getSpawns().size()) {
+										ctx.getSource().sendError(Text.literal("Index too large"));
+										return 0;
+									}
+									data.getSpawns().get(spawnGroup).remove(index);
+									data.markDirty();
+									ctx.getSource().sendFeedback(() -> Text.literal("Removed spawn successfully from " + zone.getName()), true);
+									return 1;
+								}).orElseGet(() -> {
+									ctx.getSource().sendFeedback(() -> Text.literal("No data"), false);
+									return 0;
+								});
+							})
+						)
+					)
+				)
+			).then(
+				literal("list").then(
+					zone().then(
+						spawnGroup("spawnGroup").executes(ctx -> {
+							var zone = getZone(ctx);
+							var spawnGroup = getSpawnGroup(ctx, "spawnGroup");
+							return zone.get(ZoneDataRegistry.SPAWN).<Integer>map(data -> {
+								var spawns = data.getSpawns();
+								MutableInt i = new MutableInt(0);
+								for (var spawn : spawns.get(spawnGroup)) {
+									ctx.getSource().sendFeedback(() -> Text.literal(i.getAndIncrement() + ": " + spawn.toString()), false);
+								}
+								if (spawns.isEmpty()) {
+									ctx.getSource().sendFeedback(() -> Text.literal("No spawns defined"), false);
+								}
+								return spawns.size();
+							}).orElseGet(() -> {
+								ctx.getSource().sendFeedback(() -> Text.literal("No data"), false);
+								return 0;
+							});
+						})
+					)
+				)
+			)
+		).then(
+			literal("spawnblockers").then(
+				literal("add").then(
+					zone().then(
+						argument("data", NbtCompoundArgumentType.nbtCompound()).executes(ctx -> {
+							var zone = getZone(ctx);
+							var nbt = NbtCompoundArgumentType.getNbtCompound(ctx, "data");
+							return EntityPredicate.CODEC.parse(NbtOps.INSTANCE, nbt).resultOrPartial(
+									err -> ctx.getSource().sendError(Text.literal(err))
+							).map(data -> {
+								var spawnData = zone.getOrCreate(ZoneDataRegistry.SPAWN);
+								spawnData.getSpawnBlockers().add(data);
+								spawnData.markDirty();
+								ctx.getSource().sendFeedback(() -> Text.literal("Added spawn blocker to " + zone.getName()), true);
+								return 1;
+							}).orElse(0);
+						})
+					)
+				)
+			).then(
+				literal("remove").then(
+					zone().then(
+						argument("index", IntegerArgumentType.integer(0)).executes(ctx -> {
+							int index = IntegerArgumentType.getInteger(ctx, "index");
+							var zone = getZone(ctx);
+							return zone.get(ZoneDataRegistry.SPAWN).map(data -> {
+								if (index >= data.getSpawnBlockers().size()) {
+									ctx.getSource().sendError(Text.literal("Index too large"));
+									return 0;
+								}
+								data.getSpawnBlockers().remove(index);
+								data.markDirty();
+								ctx.getSource().sendFeedback(() -> Text.literal("Removed spawn blocker successfully from " + zone.getName()), true);
+								return 1;
+							}).orElseGet(() -> {
+								ctx.getSource().sendFeedback(() -> Text.literal("No data"), false);
+								return 0;
+							});
+						})
+					)
+				)
+			).then(
+				literal("list").then(
+					zone().executes(ctx -> {
+						var zone = getZone(ctx);
+						return zone.get(ZoneDataRegistry.SPAWN).<Integer>map(data -> {
+							var blockers = data.getSpawnBlockers();
+							Function<EntityPredicate, String> printer = p -> {
+								return EntityPredicate.CODEC.encodeStart(NbtOps.INSTANCE, p).resultOrPartial(METAcraftZones.LOGGER::error).map(NbtElement::asString).orElse("Error");
+							};
+							MutableInt i = new MutableInt(0);
+							for (var b : blockers) {
+								ctx.getSource().sendFeedback(() -> Text.literal(i.getAndIncrement() + ": " + printer.apply(b)), false);
+							}
+							if (blockers.isEmpty()) {
+								ctx.getSource().sendFeedback(() -> Text.literal("No blockers defined"), false);
+							}
+							return blockers.size();
+						}).orElseGet(() -> {
+							ctx.getSource().sendFeedback(() -> Text.literal("No data"), false);
+							return 0;
+						});
+					})
+				)
+			)
 		);
 	}
+
+	private static ArgumentBuilder<ServerCommandSource, ?> spawnGroup(String name) {
+		return argument(name, StringArgumentType.word()).suggests(SUGGEST_SPAWN_GROUP);
+	}
+
+	private static SpawnGroup getSpawnGroup(CommandContext<ServerCommandSource> ctx, String name) throws CommandSyntaxException {
+		String argVal = StringArgumentType.getString(ctx, name);
+		return SpawnGroup.CODEC.parse(
+				NbtOps.INSTANCE,
+				NbtString.of(argVal)
+		).resultOrPartial(err -> ctx.getSource().sendError(Text.literal(err))).orElseThrow(INVALID_SPAWN_GROUP::create);
+	}
+
 
 	static Text join(Iterator<? extends Text> text, Text delimiter) {
 		MutableText full = Text.empty();

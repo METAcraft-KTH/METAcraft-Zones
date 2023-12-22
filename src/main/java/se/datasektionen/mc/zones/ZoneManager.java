@@ -17,6 +17,7 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 public class ZoneManager extends PersistentState {
 
@@ -75,8 +76,12 @@ public class ZoneManager extends PersistentState {
 		}
 	}
 
+	public Stream<Zone> getZonesMatching(RegistryKey<World> dim, Predicate<Zone> zonePredicate) {
+		return zones.getZones(dim).stream().filter(zonePredicate);
+	}
+
 	public Optional<Zone> getFirstZoneMatching(RegistryKey<World> dim, Predicate<Zone> zonePredicate) {
-		return zones.getZones(dim).stream().filter(zonePredicate).findFirst();
+		return getZonesMatching(dim, zonePredicate).findFirst();
 	}
 
 	public Optional<Zone> getZoneAt(RegistryKey<World> dim, BlockPos pos, Predicate<Zone> zonePredicate) {
@@ -85,6 +90,10 @@ public class ZoneManager extends PersistentState {
 
 	public Optional<Zone> getZoneAt(RegistryKey<World> dim, BlockPos pos) {
 		return getFirstZoneMatching(dim, zone -> zone.contains(pos));
+	}
+
+	public Stream<Zone> getZonesAt(RegistryKey<World> dim, BlockPos pos, Predicate<Zone> additionaLPredicate) {
+		return getZonesMatching(dim, zone -> zone.contains(pos) && additionaLPredicate.test(zone));
 	}
 
 	public <T> Optional<T> getValueForPrimaryZone(RegistryKey<World> dim, BlockPos pos, Function<Zone, Optional<T>> valueGetter) {

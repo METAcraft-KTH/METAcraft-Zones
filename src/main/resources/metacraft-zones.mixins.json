@@ -5,7 +5,8 @@
 	"mixins": [
 		"AccessorStringRange",
 		"AccessorSuggestion",
-		"MixinEntity"
+		"MixinEntity",
+		"MixinSpawnHelper"
 	],
 	"injectors": {
 		"defaultRequire": 1

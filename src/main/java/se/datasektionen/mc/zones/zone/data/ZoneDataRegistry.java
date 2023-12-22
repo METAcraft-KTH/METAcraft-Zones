@@ -1,10 +1,12 @@
 package se.datasektionen.mc.zones.zone.data;
 
+import com.google.common.collect.HashMultimap;
 import net.fabricmc.fabric.api.event.registry.FabricRegistryBuilder;
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKey;
 import se.datasektionen.mc.zones.METAcraftZones;
 
+import java.util.ArrayList;
 import java.util.Optional;
 
 public class ZoneDataRegistry {
@@ -17,6 +19,10 @@ public class ZoneDataRegistry {
 	public static final ZoneDataType<MessageZoneData> MESSAGE = Registry.register(
 			REGISTRY, METAcraftZones.getID("message"),
 			new ZoneDataType<>(MessageZoneData.CODEC, () -> new MessageZoneData(Optional.empty(), Optional.empty()))
+	);
+	public static final ZoneDataType<AdditionalSpawnsZoneData> SPAWN = Registry.register(
+			REGISTRY, METAcraftZones.getID("spawn"),
+			new ZoneDataType<>(AdditionalSpawnsZoneData.CODEC, () -> new AdditionalSpawnsZoneData(HashMultimap.create(), new ArrayList<>()))
 	);
 
 	public static void init() {
