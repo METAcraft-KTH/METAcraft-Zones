@@ -71,6 +71,10 @@ public class ZoneRegistry {
 			() -> new DimensionLimiter(World.OVERWORLD)
 	);
 
+	public static final ZoneTypeType<EmptyZone> empty = register(
+			"empty", EmptyZone.CODEC, EmptyZone::createCommand, () -> EmptyZone.INSTANCE
+	);
+
 
 	public static void init() {
 		//DO NOT REMOVE THIS!!! Necessary for things to load early enough.

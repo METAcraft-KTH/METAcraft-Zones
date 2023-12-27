@@ -51,7 +51,7 @@ public abstract class CombinedZone extends ZoneType {
 	}
 
 	public CombinedZone(List<ZoneType> zones) {
-		this.zones = zones;
+		this.zones = new ArrayList<>(zones);
 		if (zones.isEmpty()) {
 			throw new IllegalArgumentException("Don't create an empty combined zone!");
 		}
@@ -66,13 +66,22 @@ public abstract class CombinedZone extends ZoneType {
 		size = updateSize(zone, UpdateDirection.ADD);
 	}
 
-	public void removeZone(ZoneType zone) {
-		zones.add(zone);
-		size = updateSize(zone, UpdateDirection.REMOVE);
+	public ZoneType removeZone(int index) {
+		var removed = zones.remove(index);
+		size = updateSize(removed, UpdateDirection.REMOVE);
+		return removed;
 	}
 
 	public void forEach(Consumer<ZoneType> consumer) {
 		zones.forEach(consumer);
+	}
+
+	public int zoneCount() {
+		return zones.size();
+	}
+
+	public ZoneType getZone(int index) {
+		return zones.get(index);
 	}
 
 	@Override

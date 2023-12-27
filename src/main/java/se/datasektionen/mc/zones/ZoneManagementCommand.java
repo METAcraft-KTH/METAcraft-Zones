@@ -35,10 +35,7 @@ import se.datasektionen.mc.zones.zone.RealZone;
 import se.datasektionen.mc.zones.zone.ZoneRegistry;
 import se.datasektionen.mc.zones.zone.data.MessageZoneData;
 import se.datasektionen.mc.zones.zone.data.ZoneDataRegistry;
-import se.datasektionen.mc.zones.zone.types.IntersectZone;
-import se.datasektionen.mc.zones.zone.types.NegateZone;
-import se.datasektionen.mc.zones.zone.types.UnionZone;
-import se.datasektionen.mc.zones.zone.types.ZoneType;
+import se.datasektionen.mc.zones.zone.types.*;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -106,6 +103,81 @@ public class ZoneManagementCommand {
 					);
 					return 1;
 				})
+			)
+		).then(
+			literal("replace").then(
+				getZoneCreator(zone(), registryAccess, (zoneCreator, ctx) -> {
+					var zone = getZone(ctx);
+					var newZone = zoneCreator.get();
+					zone.setZone(newZone);
+					ctx.getSource().sendFeedback(
+						() -> Text.literal("Replaced zone shape of " + zone.getName() + " with " + newZone),
+						true
+					);
+					return 1;
+				})
+			)
+		).then(
+			literal("remove-shape").then(
+				zone().then(
+					argument("index", IntegerArgumentType.integer(0)).executes(ctx -> {
+						var zone = getZone(ctx);
+						int index = IntegerArgumentType.getInteger(ctx, "index");
+
+						if (zone.getZone() instanceof CombinedZone combined) {
+							if (combined.zoneCount() > index) {
+								var removed = combined.removeZone(index);
+								ctx.getSource().sendFeedback(
+									() -> Text.literal("Removed shape " + removed + " from " + zone.getName()),
+									true
+								);
+								if (combined.zoneCount() == 1) {
+									zone.setZone(combined.getZone(0));
+								}
+								return 1;
+							} else {
+								ctx.getSource().sendError(Text.literal(
+										"Index too high"
+								));
+							}
+						} else {
+							ctx.getSource().sendError(Text.literal(
+								"Not a combined zone"
+							));
+						}
+
+						return 0;
+					})
+				).then(
+					literal("all-except").then(
+						argument("index", IntegerArgumentType.integer(0)).executes(ctx -> {
+							var zone = getZone(ctx);
+							int index = IntegerArgumentType.getInteger(ctx, "index");
+
+							if (zone.getZone() instanceof CombinedZone combined) {
+								if (combined.zoneCount() > index) {
+									var toKeep = combined.getZone(index);
+									zone.setZone(toKeep);
+									ctx.getSource().sendFeedback(
+											() -> Text.literal("Set shape to " + toKeep + " for " + zone.getName()),
+											true
+									);
+									return combined.zoneCount()-1;
+								} else {
+									ctx.getSource().sendError(Text.literal(
+											"Index too high"
+									));
+								}
+							} else {
+								ctx.getSource().sendError(Text.literal(
+										"Not a combined zone"
+								));
+							}
+
+							return 0;
+						})
+					)
+				)
 			)
 		).then(
 			literal("negate").then(
@@ -540,7 +612,6 @@ public class ZoneManagementCommand {
 			RealZone container = new RealZone(
 					name, world, zone, new HashMap<>(), 0, getSettings(ctx)::markDirty
 			);
-			zone.setZoneRef(container);
 			getSettings(ctx).addZone(container);
 			ctx.getSource().sendFeedback(
 					() -> Text.literal("Added " + container.getName()), true

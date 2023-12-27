@@ -40,6 +40,7 @@ public class RealZone extends Zone {
 		this.name = name;
 		this.world = world;
 		this.zone = zone;
+		zone.setZoneRef(this);
 		this.zoneData = zoneData instanceof HashMap<ZoneDataType<?>, ZoneData> ? zoneData : new HashMap<>(zoneData);
 		zoneData.values().forEach(data -> data.setZone(this));
 		this.priority = priority;
@@ -104,6 +105,7 @@ public class RealZone extends Zone {
 
 	public void setZone(ZoneType zone) {
 		this.zone = zone;
+		zone.setZoneRef(this);
 		markNeedsSave.run();
 	}
 
@@ -176,7 +178,6 @@ public class RealZone extends Zone {
 				var container = new RealZone(
 						nbt.getString(NAME), world, zone, dataTypes, nbt.getInt(PRIORITY), markNeedsSave
 				);
-				zone.setZoneRef(container);
 
 				NbtList remoteDims = nbt.getList(REMOTE_DIMS, NbtElement.STRING_TYPE);
 				for (NbtElement element : remoteDims) {
