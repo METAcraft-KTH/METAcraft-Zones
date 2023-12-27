@@ -9,6 +9,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.mojang.brigadier.tree.CommandNode;
@@ -17,11 +18,15 @@ import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.command.CommandSource;
 import net.minecraft.command.argument.DimensionArgumentType;
 import net.minecraft.command.argument.NbtCompoundArgumentType;
+import net.minecraft.command.argument.RegistryPredicateArgumentType;
 import net.minecraft.entity.SpawnGroup;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.NbtString;
 import net.minecraft.predicate.entity.EntityPredicate;
+import net.minecraft.predicate.entity.EntityTypePredicate;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.MutableText;
@@ -31,15 +36,16 @@ import net.minecraft.world.World;
 import org.apache.commons.lang3.mutable.MutableInt;
 import se.datasektionen.mc.zones.mixin.AccessorStringRange;
 import se.datasektionen.mc.zones.mixin.AccessorSuggestion;
+import se.datasektionen.mc.zones.spawns.BetterSpawnEntry;
+import se.datasektionen.mc.zones.spawns.rules.SpawnRule;
 import se.datasektionen.mc.zones.zone.RealZone;
 import se.datasektionen.mc.zones.zone.ZoneRegistry;
+import se.datasektionen.mc.zones.zone.data.AdditionalSpawnsZoneData;
 import se.datasektionen.mc.zones.zone.data.MessageZoneData;
 import se.datasektionen.mc.zones.zone.data.ZoneDataRegistry;
 import se.datasektionen.mc.zones.zone.types.*;
 
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -59,6 +65,8 @@ public class ZoneManagementCommand {
 	public static final SuggestionProvider<ServerCommandSource> SUGGEST_SPAWN_GROUP = (ctx, builder) -> {
 		return CommandSource.suggestMatching(StringIdentifiable.toKeyable(SpawnGroup.values()).keys(NbtOps.INSTANCE).map(NbtElement::asString), builder);
 	};
+
+	private static final DynamicCommandExceptionType ENTITY_FAIL = new DynamicCommandExceptionType(id -> Text.literal(id + " is not a valid entity or entity tag!"));
 
 	static void registerCommand(
 		LiteralArgumentBuilder<ServerCommandSource> builder, CommandRegistryAccess registryAccess,
@@ -263,141 +271,179 @@ public class ZoneManagementCommand {
 		).then(
 			messageCommand("exit-command", MessageZoneData::getLeaveCommand, MessageZoneData::setLeaveCommand, dispatcher)
 		).then(
-			literal("spawns").then(
-				literal("add").then(
-					zone().then(
-						spawnGroup("spawnGroup").then(
-							argument("data", NbtCompoundArgumentType.nbtCompound()).executes(ctx -> {
-								var zone = getZone(ctx);
-								SpawnGroup spawnGroup = getSpawnGroup(ctx, "spawnGroup");
-								var nbt = NbtCompoundArgumentType.getNbtCompound(ctx, "data");
-								return BetterSpawnEntry.CODEC.parse(NbtOps.INSTANCE, nbt).resultOrPartial(
-										err -> ctx.getSource().sendError(Text.literal(err))
-								).map(data -> {
-									var spawnData = zone.getOrCreate(ZoneDataRegistry.SPAWN);
-									spawnData.getSpawns().put(spawnGroup, data);
-									spawnData.markDirty();
-									ctx.getSource().sendFeedback(() -> Text.literal("Added spawn to " + zone.getName()), true);
-									return 1;
-								}).orElse(0);
-							})
-						)
-					)
-				)
-			).then(
-				literal("remove").then(
-					zone().then(
-						spawnGroup("spawnGroup").then(
-							argument("index", IntegerArgumentType.integer(0)).executes(ctx -> {
-								int index = IntegerArgumentType.getInteger(ctx, "index");
-								var spawnGroup = getSpawnGroup(ctx, "spawnGroup");
-								var zone = getZone(ctx);
-								return zone.get(ZoneDataRegistry.SPAWN).map(data -> {
-									if (index >= data.getSpawns().size()) {
-										ctx.getSource().sendError(Text.literal("Index too large"));
-										return 0;
-									}
-									data.getSpawns().get(spawnGroup).remove(index);
-									data.markDirty();
-									ctx.getSource().sendFeedback(() -> Text.literal("Removed spawn successfully from " + zone.getName()), true);
-									return 1;
-								}).orElseGet(() -> {
-									ctx.getSource().sendFeedback(() -> Text.literal("No data"), false);
-									return 0;
-								});
-							})
-						)
-					)
-				)
-			).then(
-				literal("list").then(
-					zone().then(
-						spawnGroup("spawnGroup").executes(ctx -> {
-							var zone = getZone(ctx);
-							var spawnGroup = getSpawnGroup(ctx, "spawnGroup");
-							return zone.get(ZoneDataRegistry.SPAWN).<Integer>map(data -> {
-								var spawns = data.getSpawns();
-								MutableInt i = new MutableInt(0);
-								for (var spawn : spawns.get(spawnGroup)) {
-									ctx.getSource().sendFeedback(() -> Text.literal(i.getAndIncrement() + ": " + spawn.toString()), false);
-								}
-								if (spawns.isEmpty()) {
-									ctx.getSource().sendFeedback(() -> Text.literal("No spawns defined"), false);
-								}
-								return spawns.size();
-							}).orElseGet(() -> {
-								ctx.getSource().sendFeedback(() -> Text.literal("No data"), false);
-								return 0;
-							});
-						})
-					)
-				)
+			spawnRuleCommand(
+					"spawns", create(ImmutableList.of(spawnGroup("spawnGroup"), argument("data", NbtCompoundArgumentType.nbtCompound()))),
+					() -> Optional.of(create(ImmutableList.of(spawnGroup("spawnGroup")))),
+					(data, ctx) -> {
+						return data.getSpawns().get(getSpawnGroup(ctx, "spawnGroup"));
+					}, ctx -> {
+						var nbt = NbtCompoundArgumentType.getNbtCompound(ctx, "data");
+						return BetterSpawnEntry.CODEC.parse(NbtOps.INSTANCE, nbt).resultOrPartial(
+								err -> ctx.getSource().sendError(Text.literal(err))
+						);
+					}, "spawn", BetterSpawnEntry::toString
 			)
 		).then(
-			literal("spawnblockers").then(
+			spawnRuleCommand(
+					"spawnblockers", create(ImmutableList.of(argument("data", NbtCompoundArgumentType.nbtCompound()))),
+					Optional::empty,
+					(data, ctx) -> data.getSpawnBlockers(),
+					ctx -> {
+						var nbt = NbtCompoundArgumentType.getNbtCompound(ctx, "data");
+						return EntityPredicate.CODEC.parse(NbtOps.INSTANCE, nbt).resultOrPartial(
+								err -> ctx.getSource().sendError(Text.literal(err))
+						);
+					}, "spawn blocker", blocker -> EntityPredicate.CODEC.encodeStart(NbtOps.INSTANCE, blocker).resultOrPartial(
+							METAcraftZones.LOGGER::error
+					).map(NbtElement::asString).orElse("Error")
+			)
+		).then(
+			spawnRuleCommand(
+					"spawnrules", create(ImmutableList.of(
+							argument("entity", RegistryPredicateArgumentType.registryPredicate(RegistryKeys.ENTITY_TYPE)),
+							argument("data", NbtCompoundArgumentType.nbtCompound())
+					)), Optional::empty, (data, ctx) -> data.getSpawnRules(), ctx -> {
+						var predicate = RegistryPredicateArgumentType.getPredicate(ctx, "entity", RegistryKeys.ENTITY_TYPE, ENTITY_FAIL);
+						var data = NbtCompoundArgumentType.getNbtCompound(ctx, "data");
+						return predicate.getKey().map(
+								entity -> Optional.ofNullable(Registries.ENTITY_TYPE.get(entity)).map(EntityTypePredicate::create),
+								entityTag -> Optional.of(EntityTypePredicate.create(entityTag))
+						).flatMap(entity -> {
+							return SpawnRule.REGISTRY_CODEC.parse(NbtOps.INSTANCE, data).resultOrPartial(
+									error -> ctx.getSource().sendError(Text.literal(error))
+							).map(rule -> new AdditionalSpawnsZoneData.SpawnRuleEntry(entity, rule));
+						});
+					}, "spawn rule", rule -> AdditionalSpawnsZoneData.SpawnRuleEntry.CODEC.encodeStart(NbtOps.INSTANCE, rule).resultOrPartial(
+							METAcraftZones.LOGGER::error
+					).map(NbtElement::asString).orElse("Error")
+			)
+		);
+	}
+
+	@FunctionalInterface
+	public interface FunctionForCommands<T, R> {
+		R apply(T var1) throws CommandSyntaxException;
+	}
+
+	@FunctionalInterface
+	public interface BiFunctionForCommands<T, U, R> {
+		R apply(T var1, U var2) throws CommandSyntaxException;
+	}
+
+	public static class ArgumentSequence {
+
+		protected ArgumentBuilder<ServerCommandSource, ?> outermost;
+		protected ArgumentBuilder<ServerCommandSource, ?> innermost;
+		protected List<ArgumentBuilder<ServerCommandSource, ?>> list;
+
+		protected ArgumentSequence() {}
+
+		public static ArgumentSequence from(List<ArgumentBuilder<ServerCommandSource, ?>> list) {
+			var sequence = new ArgumentSequence();
+			sequence.outermost = list.get(0);
+			sequence.innermost = list.get(list.size()-1);
+			sequence.list = new ArrayList<>(list);
+			return sequence;
+		}
+
+		public static ArgumentSequence from(ArgumentBuilder<ServerCommandSource, ?> arg) {
+			return from(ImmutableList.of(arg));
+		}
+
+		public ArgumentSequence appendBeginning(ArgumentBuilder<ServerCommandSource, ?> arg) {
+			list.add(0, arg);
+			outermost = arg;
+			return this;
+		}
+
+		public void finalise() {
+			for (int i = list.size()-2; i >= 0; i--) {
+				list.get(i).then(list.get(i+1));
+			}
+		}
+	}
+
+	private static ArgumentSequence create(List<ArgumentBuilder<ServerCommandSource, ?>> list) {
+		return ArgumentSequence.from(list);
+	}
+
+	private static <T> ArgumentBuilder<ServerCommandSource, ?> spawnRuleCommand(
+			String name, ArgumentSequence creatorArgs, Supplier<Optional<ArgumentSequence>> fetchArgs,
+			BiFunctionForCommands<AdditionalSpawnsZoneData, CommandContext<ServerCommandSource>, List<T>> dataGetter,
+			FunctionForCommands<CommandContext<ServerCommandSource>, Optional<T>> creatorFromArgs,
+			String nameOfObject, Function<T, String> printer
+	) {
+		creatorArgs.innermost.executes(ctx -> {
+			var zone = getZone(ctx);
+			var data = creatorFromArgs.apply(ctx).orElse(null);
+			if (data != null) {
+				var spawnData = zone.getOrCreate(ZoneDataRegistry.SPAWN);
+				dataGetter.apply(spawnData, ctx).add(data);
+				spawnData.markDirty();
+				ctx.getSource().sendFeedback(() -> Text.literal("Added " + nameOfObject + " to " + zone.getName()), true);
+				return 1;
+			} else {
+				return 0;
+			}
+		});
+		var removeFetch = fetchArgs.get().map(arg -> arg.appendBeginning(zone())).orElse(ArgumentSequence.from(zone()));
+		removeFetch.innermost.then(
+				argument("index", IntegerArgumentType.integer(0)).executes(ctx -> {
+					int index = IntegerArgumentType.getInteger(ctx, "index");
+					var zone = getZone(ctx);
+					var data = zone.get(ZoneDataRegistry.SPAWN).orElse(null);
+					if (data != null) {
+						var list = dataGetter.apply(data, ctx);
+						if (index >= list.size()) {
+							ctx.getSource().sendError(Text.literal("Index too large"));
+							return 0;
+						}
+						list.remove(index);
+						data.markDirty();
+						ctx.getSource().sendFeedback(() -> Text.literal("Removed " + nameOfObject + " successfully from " + zone.getName()), true);
+					} else {
+						ctx.getSource().sendFeedback(() -> Text.literal("No data"), false);
+						return 0;
+					}
+					return 1;
+				})
+		);
+		var listFetch = fetchArgs.get().map(arg -> arg.appendBeginning(zone())).orElse(ArgumentSequence.from(zone()));
+		listFetch.innermost.executes(ctx -> {
+			var zone = getZone(ctx);
+			var data = zone.get(ZoneDataRegistry.SPAWN).orElse(null);
+			if (data != null) {
+				var objects = dataGetter.apply(data, ctx);
+				MutableInt i = new MutableInt(0);
+				for (var o : objects) {
+					ctx.getSource().sendFeedback(() -> Text.literal(i.getAndIncrement() + ": " + printer.apply(o)), false);
+				}
+				if (objects.isEmpty()) {
+					ctx.getSource().sendFeedback(() -> Text.literal("No " + nameOfObject + "s defined"), false);
+				}
+				return objects.size();
+			} else {
+				ctx.getSource().sendFeedback(() -> Text.literal("No data"), false);
+				return 0;
+			}
+		});
+		creatorArgs.finalise();
+		removeFetch.finalise();
+		listFetch.finalise();
+		return literal(name).then(
 				literal("add").then(
 					zone().then(
-						argument("data", NbtCompoundArgumentType.nbtCompound()).executes(ctx -> {
-							var zone = getZone(ctx);
-							var nbt = NbtCompoundArgumentType.getNbtCompound(ctx, "data");
-							return EntityPredicate.CODEC.parse(NbtOps.INSTANCE, nbt).resultOrPartial(
-									err -> ctx.getSource().sendError(Text.literal(err))
-							).map(data -> {
-								var spawnData = zone.getOrCreate(ZoneDataRegistry.SPAWN);
-								spawnData.getSpawnBlockers().add(data);
-								spawnData.markDirty();
-								ctx.getSource().sendFeedback(() -> Text.literal("Added spawn blocker to " + zone.getName()), true);
-								return 1;
-							}).orElse(0);
-						})
+						creatorArgs.outermost
 					)
 				)
-			).then(
+		).then(
 				literal("remove").then(
-					zone().then(
-						argument("index", IntegerArgumentType.integer(0)).executes(ctx -> {
-							int index = IntegerArgumentType.getInteger(ctx, "index");
-							var zone = getZone(ctx);
-							return zone.get(ZoneDataRegistry.SPAWN).map(data -> {
-								if (index >= data.getSpawnBlockers().size()) {
-									ctx.getSource().sendError(Text.literal("Index too large"));
-									return 0;
-								}
-								data.getSpawnBlockers().remove(index);
-								data.markDirty();
-								ctx.getSource().sendFeedback(() -> Text.literal("Removed spawn blocker successfully from " + zone.getName()), true);
-								return 1;
-							}).orElseGet(() -> {
-								ctx.getSource().sendFeedback(() -> Text.literal("No data"), false);
-								return 0;
-							});
-						})
-					)
+					removeFetch.outermost
 				)
-			).then(
+		).then(
 				literal("list").then(
-					zone().executes(ctx -> {
-						var zone = getZone(ctx);
-						return zone.get(ZoneDataRegistry.SPAWN).<Integer>map(data -> {
-							var blockers = data.getSpawnBlockers();
-							Function<EntityPredicate, String> printer = p -> {
-								return EntityPredicate.CODEC.encodeStart(NbtOps.INSTANCE, p).resultOrPartial(METAcraftZones.LOGGER::error).map(NbtElement::asString).orElse("Error");
-							};
-							MutableInt i = new MutableInt(0);
-							for (var b : blockers) {
-								ctx.getSource().sendFeedback(() -> Text.literal(i.getAndIncrement() + ": " + printer.apply(b)), false);
-							}
-							if (blockers.isEmpty()) {
-								ctx.getSource().sendFeedback(() -> Text.literal("No blockers defined"), false);
-							}
-							return blockers.size();
-						}).orElseGet(() -> {
-							ctx.getSource().sendFeedback(() -> Text.literal("No data"), false);
-							return 0;
-						});
-					})
+					listFetch.outermost
 				)
-			)
 		);
 	}
 

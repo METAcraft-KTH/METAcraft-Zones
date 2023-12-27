@@ -12,9 +12,11 @@ import net.minecraft.entity.SpawnGroup;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.predicate.entity.EntityPredicate;
+import net.minecraft.predicate.entity.EntityTypePredicate;
 import net.minecraft.util.StringIdentifiable;
-import se.datasektionen.mc.zones.BetterSpawnEntry;
+import se.datasektionen.mc.zones.spawns.BetterSpawnEntry;
 import se.datasektionen.mc.zones.METAcraftZones;
+import se.datasektionen.mc.zones.spawns.rules.SpawnRule;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -43,16 +45,23 @@ public class AdditionalSpawnsZoneData extends ZoneDataEntityTracking {
 
 	public static final Codec<AdditionalSpawnsZoneData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
 			SPAWN_ENTRY_MAP_CODEC.fieldOf("spawns").forGetter(data -> data.spawns),
-			EntityPredicate.CODEC.listOf().fieldOf("defaultSpawnBlockers").forGetter(data -> data.defaultSpawnBlockers)
+			EntityPredicate.CODEC.listOf().fieldOf("defaultSpawnBlockers").forGetter(data -> data.defaultSpawnBlockers),
+			SpawnRuleEntry.CODEC.listOf().fieldOf("spawnRules").forGetter(data -> data.rules)
 	).apply(instance, AdditionalSpawnsZoneData::new));
 
 
 	private final ListMultimap<SpawnGroup, BetterSpawnEntry> spawns;
 	private final List<EntityPredicate> defaultSpawnBlockers;
 
-	public AdditionalSpawnsZoneData(Multimap<SpawnGroup, BetterSpawnEntry> spawns, List<EntityPredicate> defaultSpawnBlockers)  {
+	private final List<SpawnRuleEntry> rules;
+
+	public AdditionalSpawnsZoneData(
+			Multimap<SpawnGroup, BetterSpawnEntry> spawns, List<EntityPredicate> defaultSpawnBlockers,
+			List<SpawnRuleEntry> rules
+	)  {
 		this.spawns = MultimapBuilder.hashKeys().arrayListValues().build(spawns);
 		this.defaultSpawnBlockers = new ArrayList<>(defaultSpawnBlockers);
+		this.rules = new ArrayList<>(rules);
 	}
 
 	public ListMultimap<SpawnGroup, BetterSpawnEntry> getSpawns() {
@@ -63,6 +72,10 @@ public class AdditionalSpawnsZoneData extends ZoneDataEntityTracking {
 		return defaultSpawnBlockers;
 	}
 
+	public List<SpawnRuleEntry> getSpawnRules() {
+		return rules;
+	}
+
 	@Override
 	public ZoneDataType<? extends ZoneData> getType() {
 		return ZoneDataRegistry.SPAWN;
@@ -71,6 +84,13 @@ public class AdditionalSpawnsZoneData extends ZoneDataEntityTracking {
 	@Override
 	public String toString() {
 		return CODEC.encodeStart(NbtOps.INSTANCE, this).resultOrPartial(METAcraftZones.LOGGER::error).map(NbtElement::asString).orElse("Error");
+	}
+
+	public record SpawnRuleEntry(EntityTypePredicate type, SpawnRule rule) {
+		public static final Codec<SpawnRuleEntry> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+				EntityTypePredicate.CODEC.fieldOf("type").forGetter(SpawnRuleEntry::type),
+				SpawnRule.REGISTRY_CODEC.fieldOf("rule").forGetter(SpawnRuleEntry::rule)
+		).apply(instance, SpawnRuleEntry::new));
 	}
 
 }

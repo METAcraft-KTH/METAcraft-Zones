@@ -5,11 +5,16 @@ import net.fabricmc.fabric.api.event.registry.FabricRegistryBuilder;
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKey;
 import se.datasektionen.mc.zones.METAcraftZones;
+import se.datasektionen.mc.zones.spawns.SpawnRuleRegistry;
 
 import java.util.ArrayList;
 import java.util.Optional;
 
 public class ZoneDataRegistry {
+
+	static {
+		SpawnRuleRegistry.init(); //Other mods might load things out of order, this makes sure the spawn rule registry is loaded to avoid issues.
+	}
 
 	public static final Registry<ZoneDataType<?>> REGISTRY = FabricRegistryBuilder.<ZoneDataType<?>>createSimple(
 			RegistryKey.ofRegistry(METAcraftZones.getID("data_types"))
@@ -22,7 +27,7 @@ public class ZoneDataRegistry {
 	);
 	public static final ZoneDataType<AdditionalSpawnsZoneData> SPAWN = Registry.register(
 			REGISTRY, METAcraftZones.getID("spawn"),
-			new ZoneDataType<>(AdditionalSpawnsZoneData.CODEC, () -> new AdditionalSpawnsZoneData(HashMultimap.create(), new ArrayList<>()))
+			new ZoneDataType<>(AdditionalSpawnsZoneData.CODEC, () -> new AdditionalSpawnsZoneData(HashMultimap.create(), new ArrayList<>(), new ArrayList<>()))
 	);
 
 	public static void init() {

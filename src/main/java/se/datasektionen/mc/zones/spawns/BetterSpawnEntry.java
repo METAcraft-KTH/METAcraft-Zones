@@ -1,4 +1,4 @@
-package se.datasektionen.mc.zones;
+package se.datasektionen.mc.zones.spawns;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
@@ -9,6 +9,7 @@ import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.util.collection.Weight;
 import net.minecraft.world.biome.SpawnSettings;
+import se.datasektionen.mc.zones.METAcraftZones;
 
 public class BetterSpawnEntry extends SpawnSettings.SpawnEntry {
 

@@ -5,26 +5,28 @@ import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
-import net.minecraft.entity.EntityData;
-import net.minecraft.entity.SpawnGroup;
-import net.minecraft.entity.SpawnReason;
+import net.minecraft.entity.*;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.collection.Pool;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.random.Random;
 import net.minecraft.world.LocalDifficulty;
 import net.minecraft.world.ServerWorldAccess;
 import net.minecraft.world.SpawnHelper;
 import net.minecraft.world.biome.Biome;
 import net.minecraft.world.biome.SpawnSettings;
+import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.gen.StructureAccessor;
 import net.minecraft.world.gen.chunk.ChunkGenerator;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import se.datasektionen.mc.zones.BetterSpawnEntry;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import se.datasektionen.mc.zones.spawns.BetterSpawnEntry;
 import se.datasektionen.mc.zones.ZoneManager;
 import se.datasektionen.mc.zones.zone.data.ZoneDataRegistry;
 
@@ -55,6 +57,26 @@ public class MixinSpawnHelper {
 		return original;
 	}
 
+	@Inject(
+			at = @At(
+					value = "INVOKE",
+					target = "Lnet/minecraft/world/SpawnHelper;isValidSpawn(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/mob/MobEntity;D)Z"
+			),
+			method = "spawnEntitiesInChunk(Lnet/minecraft/entity/SpawnGroup;Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/world/chunk/Chunk;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/world/SpawnHelper$Checker;Lnet/minecraft/world/SpawnHelper$Runner;)V"
+	)
+	private static void addNBTBeforeSpawnCheck(
+			SpawnGroup group, ServerWorld world, Chunk chunk, BlockPos pos, SpawnHelper.Checker checker,
+			SpawnHelper.Runner runner, CallbackInfo ci, @Local SpawnSettings.SpawnEntry spawnEntry,
+			@Local MobEntity mob
+	) {
+		//Apply nbt once first in order for spawn check to check it.
+		if (spawnEntry instanceof BetterSpawnEntry betterSpawnEntry) {
+			var nbt = mob.writeNbt(new NbtCompound());
+			nbt.copyFrom(betterSpawnEntry.nbt);
+			mob.readNbt(nbt);
+		}
+	}
+
 	@WrapOperation(
 		at = @At(
 			value = "INVOKE",
@@ -71,10 +93,10 @@ public class MixinSpawnHelper {
 			EntityData data = null;
 			if (betterSpawnEntry.shouldInitialise) {
 				data = initialise.call(mob, world, difficulty, spawnReason, entityData, entityNbt);
+				var nbt = mob.writeNbt(new NbtCompound()); //Apply nbt again after initialisation ()
+				nbt.copyFrom(betterSpawnEntry.nbt);
+				mob.readNbt(nbt);
 			}
-			var nbt = mob.writeNbt(new NbtCompound());
-			nbt.copyFrom(betterSpawnEntry.nbt);
-			mob.readNbt(nbt);
 			return data;
 		}
 		return initialise.call(mob, world, difficulty, spawnReason, entityData, entityNbt);
@@ -109,6 +131,34 @@ public class MixinSpawnHelper {
 			}
 		}
 		return original;
+	}
+
+	@WrapOperation(
+		method = "canSpawn(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/SpawnGroup;Lnet/minecraft/world/gen/StructureAccessor;Lnet/minecraft/world/gen/chunk/ChunkGenerator;Lnet/minecraft/world/biome/SpawnSettings$SpawnEntry;Lnet/minecraft/util/math/BlockPos$Mutable;D)Z",
+		at = @At(
+			value = "INVOKE",
+			target = "Lnet/minecraft/entity/SpawnRestriction;canSpawn(Lnet/minecraft/entity/EntityType;Lnet/minecraft/world/ServerWorldAccess;Lnet/minecraft/entity/SpawnReason;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/util/math/random/Random;)Z"
+		)
+	)
+	private static <T extends Entity> boolean canSpawn(
+			EntityType<T> type, ServerWorldAccess world, SpawnReason spawnReason, BlockPos pos, Random random, Operation<Boolean> original
+	) {
+		var zones = ZoneManager.getInstance(world.getServer()).getZonesAt(world.toServerWorld().getRegistryKey(), pos, zone -> {
+			return zone.get(ZoneDataRegistry.SPAWN).map(data -> {
+				return !data.getSpawnRules().isEmpty();
+			}).orElse(false);
+		}).toList();
+		for (var zone : zones) {
+			if (zone.get(ZoneDataRegistry.SPAWN).isPresent()) {
+				var data = zone.get(ZoneDataRegistry.SPAWN).get();
+				for (var rule : data.getSpawnRules()) {
+					if (rule.type().matches(type)) {
+						return rule.rule().canSpawn(type, world, spawnReason, pos, random);
+					}
+				}
+			}
+		}
+		return original.call(type, world, spawnReason, pos, random);
 	}
 
 }
