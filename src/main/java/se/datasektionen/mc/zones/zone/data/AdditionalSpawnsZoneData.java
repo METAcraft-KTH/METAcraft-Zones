@@ -11,11 +11,10 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.entity.SpawnGroup;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.predicate.entity.EntityPredicate;
 import net.minecraft.predicate.entity.EntityTypePredicate;
 import net.minecraft.util.StringIdentifiable;
-import se.datasektionen.mc.zones.spawns.BetterSpawnEntry;
 import se.datasektionen.mc.zones.METAcraftZones;
+import se.datasektionen.mc.zones.spawns.BetterSpawnEntry;
 import se.datasektionen.mc.zones.spawns.rules.SpawnRule;
 
 import java.util.ArrayList;
@@ -45,18 +44,18 @@ public class AdditionalSpawnsZoneData extends ZoneDataEntityTracking {
 
 	public static final Codec<AdditionalSpawnsZoneData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
 			SPAWN_ENTRY_MAP_CODEC.fieldOf("spawns").forGetter(data -> data.spawns),
-			EntityPredicate.CODEC.listOf().fieldOf("defaultSpawnBlockers").forGetter(data -> data.defaultSpawnBlockers),
+			EntityTypePredicate.CODEC.listOf().fieldOf("defaultSpawnBlockers").forGetter(data -> data.defaultSpawnBlockers),
 			SpawnRuleEntry.CODEC.listOf().fieldOf("spawnRules").forGetter(data -> data.rules)
 	).apply(instance, AdditionalSpawnsZoneData::new));
 
 
 	private final ListMultimap<SpawnGroup, BetterSpawnEntry> spawns;
-	private final List<EntityPredicate> defaultSpawnBlockers;
+	private final List<EntityTypePredicate> defaultSpawnBlockers;
 
 	private final List<SpawnRuleEntry> rules;
 
 	public AdditionalSpawnsZoneData(
-			Multimap<SpawnGroup, BetterSpawnEntry> spawns, List<EntityPredicate> defaultSpawnBlockers,
+			Multimap<SpawnGroup, BetterSpawnEntry> spawns, List<EntityTypePredicate> defaultSpawnBlockers,
 			List<SpawnRuleEntry> rules
 	)  {
 		this.spawns = MultimapBuilder.hashKeys().arrayListValues().build(spawns);
@@ -68,7 +67,7 @@ public class AdditionalSpawnsZoneData extends ZoneDataEntityTracking {
 		return spawns;
 	}
 
-	public List<EntityPredicate> getSpawnBlockers() {
+	public List<EntityTypePredicate> getSpawnBlockers() {
 		return defaultSpawnBlockers;
 	}
 

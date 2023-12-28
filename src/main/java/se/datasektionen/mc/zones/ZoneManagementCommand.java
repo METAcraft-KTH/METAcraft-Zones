@@ -23,7 +23,6 @@ import net.minecraft.entity.SpawnGroup;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.NbtString;
-import net.minecraft.predicate.entity.EntityPredicate;
 import net.minecraft.predicate.entity.EntityTypePredicate;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.RegistryKeys;
@@ -285,15 +284,17 @@ public class ZoneManagementCommand {
 			)
 		).then(
 			spawnRuleCommand(
-					"spawnblockers", create(ImmutableList.of(argument("data", NbtCompoundArgumentType.nbtCompound()))),
+					"spawnblockers",
+					create(ImmutableList.of(argument("entity", RegistryPredicateArgumentType.registryPredicate(RegistryKeys.ENTITY_TYPE)))),
 					Optional::empty,
 					(data, ctx) -> data.getSpawnBlockers(),
 					ctx -> {
-						var nbt = NbtCompoundArgumentType.getNbtCompound(ctx, "data");
-						return EntityPredicate.CODEC.parse(NbtOps.INSTANCE, nbt).resultOrPartial(
-								err -> ctx.getSource().sendError(Text.literal(err))
+						var predicate = RegistryPredicateArgumentType.getPredicate(ctx, "entity", RegistryKeys.ENTITY_TYPE, ENTITY_FAIL);
+						return predicate.getKey().map(
+								entity -> Optional.ofNullable(Registries.ENTITY_TYPE.get(entity)).map(EntityTypePredicate::create),
+								entityTag -> Optional.of(EntityTypePredicate.create(entityTag))
 						);
-					}, "spawn blocker", blocker -> EntityPredicate.CODEC.encodeStart(NbtOps.INSTANCE, blocker).resultOrPartial(
+					}, "spawn blocker", blocker -> EntityTypePredicate.CODEC.encodeStart(NbtOps.INSTANCE, blocker).resultOrPartial(
 							METAcraftZones.LOGGER::error
 					).map(NbtElement::asString).orElse("Error")
 			)

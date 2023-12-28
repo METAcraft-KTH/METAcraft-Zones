@@ -1,6 +1,8 @@
 package se.datasektionen.mc.zones.mixin;
 
-import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
@@ -21,13 +23,14 @@ import net.minecraft.world.biome.SpawnSettings;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.gen.StructureAccessor;
 import net.minecraft.world.gen.chunk.ChunkGenerator;
+import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import se.datasektionen.mc.zones.spawns.BetterSpawnEntry;
 import se.datasektionen.mc.zones.ZoneManager;
+import se.datasektionen.mc.zones.spawns.BetterSpawnEntry;
 import se.datasektionen.mc.zones.zone.data.ZoneDataRegistry;
 
 import java.util.ArrayList;
@@ -40,17 +43,39 @@ public class MixinSpawnHelper {
 			Pool<SpawnSettings.SpawnEntry> original, ServerWorld world, StructureAccessor structureAccessor,
 			ChunkGenerator chunkGenerator, SpawnGroup spawnGroup, BlockPos pos, @Nullable RegistryEntry<Biome> biomeEntry
 	) {
+		MutableBoolean hasBlockers = new MutableBoolean(false);
 		var zones = ZoneManager.getInstance(world.getServer()).getZonesAt(world.getRegistryKey(), pos, zone -> {
 			return zone.get(ZoneDataRegistry.SPAWN).map(data -> {
-				return !data.getSpawns().isEmpty();
+				if (!data.getSpawnBlockers().isEmpty()) {
+					hasBlockers.setTrue();
+				}
+				return !data.getSpawns().isEmpty() || !data.getSpawnBlockers().isEmpty();
 			}).orElse(false);
 		}).toList();
 		if (!zones.isEmpty()) {
-			var spawns = new ArrayList<>(original.getEntries());
+			var spawns = original.getEntries();
+			if (hasBlockers.isTrue()) {
+				Multimap<EntityType<?>, SpawnSettings.SpawnEntry> spawnsMap = spawns.stream().collect(
+						Multimaps.toMultimap(entry -> entry.type, entry -> entry, HashMultimap::create)
+				);
+				for (var zone : zones) {
+					zone.get(ZoneDataRegistry.SPAWN).ifPresent(spawnData -> {
+						for (var blocker : spawnData.getSpawnBlockers()) {
+							for (var type : blocker.types()) {
+								spawnsMap.removeAll(type.value());
+							}
+						}
+					});
+				}
+				spawns = new ArrayList<>(spawnsMap.values());
+			} else {
+				spawns = new ArrayList<>(original.getEntries());
+			}
 			for (var zone : zones) {
-				zone.get(ZoneDataRegistry.SPAWN).ifPresent(spawnData -> {
+				var spawnData = zone.get(ZoneDataRegistry.SPAWN).orElse(null);
+				if (spawnData != null) {
 					spawns.addAll(spawnData.getSpawns().get(spawnGroup));
-				});
+				}
 			}
 			return Pool.of(spawns);
  		}
@@ -100,37 +125,6 @@ public class MixinSpawnHelper {
 			return data;
 		}
 		return initialise.call(mob, world, difficulty, spawnReason, entityData, entityNbt);
-	}
-
-	@ModifyExpressionValue(
-		at = @At(
-			value = "INVOKE",
-			target = "Lnet/minecraft/world/SpawnHelper;isValidSpawn(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/mob/MobEntity;D)Z"
-		),
-		method = "spawnEntitiesInChunk(Lnet/minecraft/entity/SpawnGroup;Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/world/chunk/Chunk;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/world/SpawnHelper$Checker;Lnet/minecraft/world/SpawnHelper$Runner;)V"
-	)
-	private static boolean canSpawn(
-			boolean original, @Local ServerWorld world, @Local MobEntity entity, @Local SpawnSettings.SpawnEntry spawnEntry
-	) {
-		if (spawnEntry instanceof BetterSpawnEntry) {
-			return original;
-		}
-		var zones = ZoneManager.getInstance(world.getServer()).getZonesAt(world.getRegistryKey(), entity.getBlockPos(), zone -> {
-			return zone.get(ZoneDataRegistry.SPAWN).map(data -> {
-				return !data.getSpawnBlockers().isEmpty();
-			}).orElse(false);
-		}).toList();
-		for (var zone : zones) {
-			if (zone.get(ZoneDataRegistry.SPAWN).isPresent()) {
-				var data = zone.get(ZoneDataRegistry.SPAWN).get();
-				for (var blocker : data.getSpawnBlockers()) {
-					if (blocker.test(world, null, entity)) {
-						return false;
-					}
-				}
-			}
-		}
-		return original;
 	}
 
 	@WrapOperation(
