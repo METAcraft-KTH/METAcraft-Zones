@@ -1,5 +1,5 @@
 plugins {
-	id 'fabric-loom' version '1.2-SNAPSHOT'
+	id 'fabric-loom' version '1.4-SNAPSHOT'
 	id 'maven-publish'
   id "org.jetbrains.kotlin.jvm" version "1.8.22"
 }
@@ -55,10 +55,9 @@ dependencies {
 	// modImplementation "net.fabricmc.fabric-api:fabric-api-deprecated:${project.fabric_version}"
 
 
-	include(implementation(annotationProcessor("io.github.llamalad7:mixinextras-fabric:${project.mixin_extras_version}")))
 	include(modImplementation("me.lucko:fabric-permissions-api:${project.fabric_permissions_api_version}"))
 
-	modImplementation "xyz.nucleoid:stimuli:${project.stimuli_version}"
+	modImplementation("xyz.nucleoid:stimuli:${project.stimuli_version}")
 	modImplementation("maven.modrinth:leukocyte:${project.leukocyte_version}")
 }
 

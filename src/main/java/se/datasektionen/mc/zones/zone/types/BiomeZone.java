@@ -8,7 +8,6 @@ import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.command.CommandException;
 import net.minecraft.command.argument.RegistryPredicateArgumentType;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.registry.entry.RegistryElementCodec;
@@ -18,6 +17,8 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.biome.Biome;
+import org.apache.commons.lang3.mutable.MutableBoolean;
+import se.datasektionen.mc.zones.ZoneCommandUtils;
 import se.datasektionen.mc.zones.ZoneManagementCommand;
 import se.datasektionen.mc.zones.zone.Zone;
 import se.datasektionen.mc.zones.zone.ZoneRegistry;
@@ -57,13 +58,21 @@ public class BiomeZone extends ZoneType {
 
 	private static int runCommand(CommandContext<ServerCommandSource> ctx, boolean alwaysCheckSourceDim, ZoneManagementCommand.ZoneAdder addZone) throws CommandSyntaxException {
 		var biome = RegistryPredicateArgumentType.getPredicate(ctx, "biome", RegistryKeys.BIOME, BIOME_FAIL);
-		return addZone.add(() -> new BiomeZone(
-			biome.getKey().mapLeft(
+		MutableBoolean error = new MutableBoolean(false);
+		Either<RegistryEntry<Biome>, TagKey<Biome>> mapped = biome.getKey().mapLeft(
 				key -> ctx.getSource().getServer().getRegistryManager().get(RegistryKeys.BIOME)
-						.getEntry(key).orElseThrow(() -> new CommandException(
-								Text.literal(biome.asString() + " is not a valid biome!")
-						))
-			),
+						.getEntry(key).orElseGet(() -> {
+							error.setTrue();
+							return null;
+						})
+		);
+		if (error.booleanValue()) {
+			throw ZoneCommandUtils.OTHER_ERROR.create(
+					biome.asString() + " is not a valid biome!"
+			);
+		}
+		return addZone.add(() -> new BiomeZone(
+			mapped,
 			alwaysCheckSourceDim
 		), ctx);
 	}

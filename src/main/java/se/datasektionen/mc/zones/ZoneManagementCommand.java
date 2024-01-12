@@ -13,7 +13,6 @@ import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.mojang.brigadier.tree.CommandNode;
-import net.minecraft.command.CommandException;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.command.CommandSource;
 import net.minecraft.command.argument.DimensionArgumentType;
@@ -57,6 +56,10 @@ public class ZoneManagementCommand {
 
 	public static final String NAME = "name";
 
+	public static final SimpleCommandExceptionType ZONE_ALREADY_EXISTS = new SimpleCommandExceptionType(
+			Text.literal("Another zone already exists with that name.")
+	);
+
 	public static final SimpleCommandExceptionType INVALID_SPAWN_GROUP = new SimpleCommandExceptionType(
 			Text.literal("Invalid Spawn Group")
 	);
@@ -67,9 +70,11 @@ public class ZoneManagementCommand {
 
 	private static final DynamicCommandExceptionType ENTITY_FAIL = new DynamicCommandExceptionType(id -> Text.literal(id + " is not a valid entity or entity tag!"));
 
+
+
 	static void registerCommand(
-		LiteralArgumentBuilder<ServerCommandSource> builder, CommandRegistryAccess registryAccess,
-		CommandDispatcher<ServerCommandSource> dispatcher
+			LiteralArgumentBuilder<ServerCommandSource> builder, CommandRegistryAccess registryAccess,
+			CommandDispatcher<ServerCommandSource> dispatcher
 	) {
 		builder.then(
 			literal("create").then(
@@ -79,7 +84,7 @@ public class ZoneManagementCommand {
 			literal("extend").then(
 				getZoneCreator(zone(), registryAccess, (zoneCreator, ctx) -> {
 					var zone = getZone(ctx);
-					var newZone = zoneCreator.get();
+					var newZone = zoneCreator.create();
 					if (zone.getZone() instanceof UnionZone union) {
 						union.addZone(newZone);
 					} else {
@@ -97,7 +102,7 @@ public class ZoneManagementCommand {
 			literal("restrict-to").then(
 				getZoneCreator(zone(), registryAccess, (zoneCreator, ctx) -> {
 					var zone = getZone(ctx);
-					var newZone = zoneCreator.get();
+					var newZone = zoneCreator.create();
 					if (zone.getZone() instanceof IntersectZone intersect) {
 						intersect.addZone(newZone);
 					} else {
@@ -115,11 +120,11 @@ public class ZoneManagementCommand {
 			literal("replace").then(
 				getZoneCreator(zone(), registryAccess, (zoneCreator, ctx) -> {
 					var zone = getZone(ctx);
-					var newZone = zoneCreator.get();
+					var newZone = zoneCreator.create();
 					zone.setZone(newZone);
 					ctx.getSource().sendFeedback(
-						() -> Text.literal("Replaced zone shape of " + zone.getName() + " with " + newZone),
-						true
+							() -> Text.literal("Replaced zone shape of " + zone.getName() + " with " + newZone),
+							true
 					);
 					return 1;
 				})
@@ -135,8 +140,8 @@ public class ZoneManagementCommand {
 							if (combined.zoneCount() > index) {
 								var removed = combined.removeZone(index);
 								ctx.getSource().sendFeedback(
-									() -> Text.literal("Removed shape " + removed + " from " + zone.getName()),
-									true
+										() -> Text.literal("Removed shape " + removed + " from " + zone.getName()),
+										true
 								);
 								if (combined.zoneCount() == 1) {
 									zone.setZone(combined.getZone(0));
@@ -149,7 +154,7 @@ public class ZoneManagementCommand {
 							}
 						} else {
 							ctx.getSource().sendError(Text.literal(
-								"Not a combined zone"
+									"Not a combined zone"
 							));
 						}
 
@@ -266,58 +271,58 @@ public class ZoneManagementCommand {
 				return 1;
 			})
 		).then(
-			messageCommand("entry-command", MessageZoneData::getEnterCommand, MessageZoneData::setEnterCommand, dispatcher)
+				messageCommand("entry-command", MessageZoneData::getEnterCommand, MessageZoneData::setEnterCommand, dispatcher)
 		).then(
-			messageCommand("exit-command", MessageZoneData::getLeaveCommand, MessageZoneData::setLeaveCommand, dispatcher)
+				messageCommand("exit-command", MessageZoneData::getLeaveCommand, MessageZoneData::setLeaveCommand, dispatcher)
 		).then(
-			spawnRuleCommand(
-					"spawns", create(ImmutableList.of(spawnGroup("spawnGroup"), argument("data", NbtCompoundArgumentType.nbtCompound()))),
-					() -> Optional.of(create(ImmutableList.of(spawnGroup("spawnGroup")))),
-					(data, ctx) -> {
-						return data.getSpawns().get(getSpawnGroup(ctx, "spawnGroup"));
-					}, ctx -> {
-						var nbt = NbtCompoundArgumentType.getNbtCompound(ctx, "data");
-						return BetterSpawnEntry.CODEC.parse(NbtOps.INSTANCE, nbt).resultOrPartial(
-								err -> ctx.getSource().sendError(Text.literal(err))
-						);
-					}, "spawn", BetterSpawnEntry::toString
-			)
+				spawnRuleCommand(
+						"spawns", create(ImmutableList.of(spawnGroup("spawnGroup"), argument("data", NbtCompoundArgumentType.nbtCompound()))),
+						() -> Optional.of(create(ImmutableList.of(spawnGroup("spawnGroup")))),
+						(data, ctx) -> {
+							return data.getSpawns().get(getSpawnGroup(ctx, "spawnGroup"));
+						}, ctx -> {
+							var nbt = NbtCompoundArgumentType.getNbtCompound(ctx, "data");
+							return BetterSpawnEntry.CODEC.parse(NbtOps.INSTANCE, nbt).resultOrPartial(
+									err -> ctx.getSource().sendError(Text.literal(err))
+							);
+						}, "spawn", BetterSpawnEntry::toString
+				)
 		).then(
-			spawnRuleCommand(
-					"spawnblockers",
-					create(ImmutableList.of(argument("entity", RegistryPredicateArgumentType.registryPredicate(RegistryKeys.ENTITY_TYPE)))),
-					Optional::empty,
-					(data, ctx) -> data.getSpawnBlockers(),
-					ctx -> {
-						var predicate = RegistryPredicateArgumentType.getPredicate(ctx, "entity", RegistryKeys.ENTITY_TYPE, ENTITY_FAIL);
-						return predicate.getKey().map(
-								entity -> Optional.ofNullable(Registries.ENTITY_TYPE.get(entity)).map(EntityTypePredicate::create),
-								entityTag -> Optional.of(EntityTypePredicate.create(entityTag))
-						);
-					}, "spawn blocker", blocker -> EntityTypePredicate.CODEC.encodeStart(NbtOps.INSTANCE, blocker).resultOrPartial(
-							METAcraftZones.LOGGER::error
-					).map(NbtElement::asString).orElse("Error")
-			)
+				spawnRuleCommand(
+						"spawnblockers",
+						create(ImmutableList.of(argument("entity", RegistryPredicateArgumentType.registryPredicate(RegistryKeys.ENTITY_TYPE)))),
+						Optional::empty,
+						(data, ctx) -> data.getSpawnBlockers(),
+						ctx -> {
+							var predicate = RegistryPredicateArgumentType.getPredicate(ctx, "entity", RegistryKeys.ENTITY_TYPE, ENTITY_FAIL);
+							return predicate.getKey().map(
+									entity -> Optional.ofNullable(Registries.ENTITY_TYPE.get(entity)).map(EntityTypePredicate::create),
+									entityTag -> Optional.of(EntityTypePredicate.create(entityTag))
+							);
+						}, "spawn blocker", blocker -> EntityTypePredicate.CODEC.encodeStart(NbtOps.INSTANCE, blocker).resultOrPartial(
+								METAcraftZones.LOGGER::error
+						).map(NbtElement::asString).orElse("Error")
+				)
 		).then(
-			spawnRuleCommand(
-					"spawnrules", create(ImmutableList.of(
-							argument("entity", RegistryPredicateArgumentType.registryPredicate(RegistryKeys.ENTITY_TYPE)),
-							argument("data", NbtCompoundArgumentType.nbtCompound())
-					)), Optional::empty, (data, ctx) -> data.getSpawnRules(), ctx -> {
-						var predicate = RegistryPredicateArgumentType.getPredicate(ctx, "entity", RegistryKeys.ENTITY_TYPE, ENTITY_FAIL);
-						var data = NbtCompoundArgumentType.getNbtCompound(ctx, "data");
-						return predicate.getKey().map(
-								entity -> Optional.ofNullable(Registries.ENTITY_TYPE.get(entity)).map(EntityTypePredicate::create),
-								entityTag -> Optional.of(EntityTypePredicate.create(entityTag))
-						).flatMap(entity -> {
-							return SpawnRule.REGISTRY_CODEC.parse(NbtOps.INSTANCE, data).resultOrPartial(
-									error -> ctx.getSource().sendError(Text.literal(error))
-							).map(rule -> new AdditionalSpawnsZoneData.SpawnRuleEntry(entity, rule));
-						});
-					}, "spawn rule", rule -> AdditionalSpawnsZoneData.SpawnRuleEntry.CODEC.encodeStart(NbtOps.INSTANCE, rule).resultOrPartial(
-							METAcraftZones.LOGGER::error
-					).map(NbtElement::asString).orElse("Error")
-			)
+				spawnRuleCommand(
+						"spawnrules", create(ImmutableList.of(
+								argument("entity", RegistryPredicateArgumentType.registryPredicate(RegistryKeys.ENTITY_TYPE)),
+								argument("data", NbtCompoundArgumentType.nbtCompound())
+						)), Optional::empty, (data, ctx) -> data.getSpawnRules(), ctx -> {
+							var predicate = RegistryPredicateArgumentType.getPredicate(ctx, "entity", RegistryKeys.ENTITY_TYPE, ENTITY_FAIL);
+							var data = NbtCompoundArgumentType.getNbtCompound(ctx, "data");
+							return predicate.getKey().map(
+									entity -> Optional.ofNullable(Registries.ENTITY_TYPE.get(entity)).map(EntityTypePredicate::create),
+									entityTag -> Optional.of(EntityTypePredicate.create(entityTag))
+							).flatMap(entity -> {
+								return SpawnRule.REGISTRY_CODEC.parse(NbtOps.INSTANCE, data).resultOrPartial(
+										error -> ctx.getSource().sendError(Text.literal(error))
+								).map(rule -> new AdditionalSpawnsZoneData.SpawnRuleEntry(entity, rule));
+							});
+						}, "spawn rule", rule -> AdditionalSpawnsZoneData.SpawnRuleEntry.CODEC.encodeStart(NbtOps.INSTANCE, rule).resultOrPartial(
+								METAcraftZones.LOGGER::error
+						).map(NbtElement::asString).orElse("Error")
+				)
 		);
 	}
 
@@ -433,17 +438,17 @@ public class ZoneManagementCommand {
 		listFetch.finalise();
 		return literal(name).then(
 				literal("add").then(
-					zone().then(
-						creatorArgs.outermost
-					)
+						zone().then(
+								creatorArgs.outermost
+						)
 				)
 		).then(
 				literal("remove").then(
-					removeFetch.outermost
+						removeFetch.outermost
 				)
 		).then(
 				literal("list").then(
-					listFetch.outermost
+						listFetch.outermost
 				)
 		);
 	}
@@ -459,7 +464,6 @@ public class ZoneManagementCommand {
 				NbtString.of(argVal)
 		).resultOrPartial(err -> ctx.getSource().sendError(Text.literal(err))).orElseThrow(INVALID_SPAWN_GROUP::create);
 	}
-
 
 	static Text join(Iterator<? extends Text> text, Text delimiter) {
 		MutableText full = Text.empty();
@@ -638,7 +642,7 @@ public class ZoneManagementCommand {
 		);
 	}
 
-	static RealZone getZone(CommandContext<ServerCommandSource> ctx) throws CommandException {
+	static RealZone getZone(CommandContext<ServerCommandSource> ctx) throws CommandSyntaxException {
 		return ZoneCommandUtils.getZone(ctx, NAME);
 	}
 
@@ -651,10 +655,10 @@ public class ZoneManagementCommand {
 	) {
 		return getZoneCreator(builder, registryAccess, (zoneCreator, ctx) -> {
 			World world = ctx.getSource().getWorld();
-			ZoneType zone = zoneCreator.get();
+			ZoneType zone = zoneCreator.create();
 			String name = StringArgumentType.getString(ctx, NAME);
 			if (getSettings(ctx).containsZone(name)) {
-				throw new CommandException(Text.literal("Another zone already exists with that name."));
+				throw ZONE_ALREADY_EXISTS.create();
 			}
 			RealZone container = new RealZone(
 					name, world, zone, new HashMap<>(), 0, getSettings(ctx)::markDirty
@@ -684,7 +688,12 @@ public class ZoneManagementCommand {
 
 	@FunctionalInterface
 	public interface ZoneAdder {
-		int add(Supplier<ZoneType> zoneCreator, CommandContext<ServerCommandSource> ctx);
+		int add(ZoneCreator zoneCreator, CommandContext<ServerCommandSource> ctx) throws CommandSyntaxException;
+	}
+
+	@FunctionalInterface
+	public interface ZoneCreator {
+		ZoneType create() throws CommandSyntaxException;
 	}
 
 	public static ZoneManager getSettings(CommandContext<ServerCommandSource> ctx) {

@@ -1,7 +1,10 @@
 package se.datasektionen.mc.zones.zone;
 
 import com.mojang.datafixers.util.Either;
-import net.minecraft.nbt.*;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
+import net.minecraft.nbt.NbtList;
+import net.minecraft.nbt.NbtOps;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryOps;
 import net.minecraft.server.MinecraftServer;
@@ -12,8 +15,8 @@ import se.datasektionen.mc.zones.ZoneManager;
 import se.datasektionen.mc.zones.compat.CompatMods;
 import se.datasektionen.mc.zones.compat.leukocyte.LeukocyteZoneManager;
 import se.datasektionen.mc.zones.zone.data.ZoneData;
-import se.datasektionen.mc.zones.zone.data.ZoneDataType;
 import se.datasektionen.mc.zones.zone.data.ZoneDataRegistry;
+import se.datasektionen.mc.zones.zone.data.ZoneDataType;
 import se.datasektionen.mc.zones.zone.types.ZoneType;
 
 import java.util.*;
