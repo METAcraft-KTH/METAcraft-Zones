@@ -5,7 +5,6 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.text.Text;
 
 import java.util.Optional;
 
@@ -79,10 +78,10 @@ public class MessageZoneData extends ZoneDataEntityTracking {
 	public String toString() {
 		StringBuilder text = new StringBuilder("MessageZoneData[");
 		enterCommand.ifPresent(cmd -> {
-			text.append(Text.literal("enterMessage=").append(cmd).append(","));
+			text.append("enterCommand=").append(cmd).append(",");
 		});
 		leaveCommand.ifPresent(cmd -> {
-			text.append(Text.literal("exitMessage=").append(cmd).append(","));
+			text.append("exitCommand=").append(cmd).append(",");
 		});
 		text.replace(text.length()-1, text.length(), "]");
 		return text.toString();

@@ -17,6 +17,7 @@ import se.datasektionen.mc.zones.compat.leukocyte.LeukocyteZoneManager;
 import se.datasektionen.mc.zones.zone.data.ZoneData;
 import se.datasektionen.mc.zones.zone.data.ZoneDataRegistry;
 import se.datasektionen.mc.zones.zone.data.ZoneDataType;
+import se.datasektionen.mc.zones.zone.types.EmptyZone;
 import se.datasektionen.mc.zones.zone.types.ZoneType;
 
 import java.util.*;
@@ -160,50 +161,56 @@ public class RealZone extends Zone {
 		return World.CODEC.parse(NbtOps.INSTANCE, nbt.get(DIM)).resultOrPartial(
 				METAcraftZones.LOGGER::error
 		).flatMap(dim -> {
+			var name = nbt.getString(NAME);
 			World world = server.getWorld(dim);
 			if (world == null) {
-				METAcraftZones.LOGGER.error("Dimension invalid");
+				METAcraftZones.LOGGER.error("Root dimension invalid, deleting zone " + name);
 				return Optional.empty();
 			}
-			return ZoneType.REGISTRY_CODEC.parse(RegistryOps.of(NbtOps.INSTANCE, world.getRegistryManager()), nbt.get(ZONE)).resultOrPartial(
+			var zone = ZoneType.REGISTRY_CODEC.parse(RegistryOps.of(NbtOps.INSTANCE, world.getRegistryManager()), nbt.get(ZONE)).resultOrPartial(
 					METAcraftZones.LOGGER::error
-			).map(zone -> {
-				Map<ZoneDataType<?>, ZoneData> dataTypes = new HashMap<>();
-				NbtList data = nbt.getList(DATA, NbtElement.COMPOUND_TYPE);
-				for (NbtElement element : data) {
-					ZoneData.REGISTRY_CODEC.parse(
-							RegistryOps.of(NbtOps.INSTANCE, world.getRegistryManager()), element
-					).resultOrPartial(METAcraftZones.LOGGER::error).ifPresent(dataValue -> {
-						dataTypes.put(dataValue.getType(), dataValue);
-					});
-				}
-
-				var container = new RealZone(
-						nbt.getString(NAME), world, zone, dataTypes, nbt.getInt(PRIORITY), markNeedsSave
+			).orElseGet(() -> {
+				METAcraftZones.LOGGER.error(
+						"Unable to parse zone type for " + name + ", setting zone type to empty. " +
+						"To make this zone work again, use /zone replace " + name + " <zone_type>"
 				);
-
-				NbtList remoteDims = nbt.getList(REMOTE_DIMS, NbtElement.STRING_TYPE);
-				for (NbtElement element : remoteDims) {
-					World.CODEC.parse(NbtOps.INSTANCE, element).resultOrPartial(
-							METAcraftZones.LOGGER::error
-					).map(
-							otherDim -> {
-								var remoteWorld = server.getWorld(otherDim);
-								if (remoteWorld != null) {
-									return Either.<World, RegistryKey<World>>left(remoteWorld);
-								} else {
-									return Either.<World, RegistryKey<World>>right(otherDim);
-								}
-							}
-					).ifPresent(otherDim -> {
-						otherDim.ifLeft(otherWorld -> {
-							container.remoteDimensions.put(otherWorld.getRegistryKey(), new RemoteZone(otherWorld, container));
-						});
-						otherDim.ifRight(container.remoteWorldsToCheck::add);
-					});
-				}
-				return container;
+				return EmptyZone.INSTANCE;
 			});
+			Map<ZoneDataType<?>, ZoneData> dataTypes = new HashMap<>();
+			NbtList data = nbt.getList(DATA, NbtElement.COMPOUND_TYPE);
+			for (NbtElement element : data) {
+				ZoneData.REGISTRY_CODEC.parse(
+						RegistryOps.of(NbtOps.INSTANCE, world.getRegistryManager()), element
+				).resultOrPartial(METAcraftZones.LOGGER::error).ifPresent(dataValue -> {
+					dataTypes.put(dataValue.getType(), dataValue);
+				});
+			}
+
+			RealZone container = new RealZone(
+					name, world, zone, dataTypes, nbt.getInt(PRIORITY), markNeedsSave
+			);
+
+			NbtList remoteDims = nbt.getList(REMOTE_DIMS, NbtElement.STRING_TYPE);
+			for (NbtElement element : remoteDims) {
+				World.CODEC.parse(NbtOps.INSTANCE, element).resultOrPartial(
+						METAcraftZones.LOGGER::error
+				).map(
+						otherDim -> {
+							var remoteWorld = server.getWorld(otherDim);
+							if (remoteWorld != null) {
+								return Either.<World, RegistryKey<World>>left(remoteWorld);
+							} else {
+								return Either.<World, RegistryKey<World>>right(otherDim);
+							}
+						}
+				).ifPresent(otherDim -> {
+					otherDim.ifLeft(otherWorld -> {
+						container.remoteDimensions.put(otherWorld.getRegistryKey(), new RemoteZone(otherWorld, container));
+					});
+					otherDim.ifRight(container.remoteWorldsToCheck::add);
+				});
+			}
+			return Optional.of(container);
 		});
 	}
 

@@ -12,6 +12,7 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockBox;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ColumnPos;
 import net.minecraft.util.math.Vec3i;
 import net.minecraft.world.World;
 import se.datasektionen.mc.zones.METAcraftZones;
@@ -73,6 +74,11 @@ public class ZoneRegistry {
 
 	public static final ZoneTypeType<EmptyZone> empty = register(
 			"empty", EmptyZone.CODEC, EmptyZone::createCommand, () -> EmptyZone.INSTANCE
+	);
+
+	public static final ZoneTypeType<TriangleZone> triangle = register(
+			"triangle", TriangleZone.CODEC, TriangleZone::createCommand,
+			() -> new TriangleZone(new ColumnPos(0, 0), new ColumnPos(0, 0), new ColumnPos(0, 0))
 	);
 
 
