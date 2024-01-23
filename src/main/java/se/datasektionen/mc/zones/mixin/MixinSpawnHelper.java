@@ -3,6 +3,7 @@ package se.datasektionen.mc.zones.mixin;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
@@ -14,6 +15,7 @@ import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.collection.Pool;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.LocalDifficulty;
 import net.minecraft.world.ServerWorldAccess;
@@ -26,6 +28,7 @@ import net.minecraft.world.gen.chunk.ChunkGenerator;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -36,12 +39,36 @@ import se.datasektionen.mc.zones.zone.data.ZoneDataRegistry;
 import java.util.ArrayList;
 
 @Mixin(SpawnHelper.class)
-public class MixinSpawnHelper {
+public abstract class MixinSpawnHelper {
 
 	@ModifyReturnValue(method = "getSpawnEntries", at = @At("RETURN"))
 	private static Pool<SpawnSettings.SpawnEntry> getSpawnEntryFromZone(
 			Pool<SpawnSettings.SpawnEntry> original, ServerWorld world, StructureAccessor structureAccessor,
 			ChunkGenerator chunkGenerator, SpawnGroup spawnGroup, BlockPos pos, @Nullable RegistryEntry<Biome> biomeEntry
+	) {
+		return applySpawnRules(original, world, pos, spawnGroup);
+	}
+
+	@ModifyExpressionValue(
+		method = "populateEntities",
+		at = @At(
+			value = "INVOKE",
+			target = "Lnet/minecraft/world/biome/SpawnSettings;getSpawnEntries(Lnet/minecraft/entity/SpawnGroup;)Lnet/minecraft/util/collection/Pool;"
+		)
+	)
+	private static Pool<SpawnSettings.SpawnEntry> test(
+			Pool<SpawnSettings.SpawnEntry> original, @Local ServerWorldAccess world, @Local ChunkPos chunkPos
+	) {
+		return applySpawnRules(
+				original, world.toServerWorld(),
+				chunkPos.getStartPos().withY(world.getTopY() - 1), //This is what vanilla uses to fetch the biome, so this is no less accurate than vanilla.
+				SpawnGroup.CREATURE
+		);
+	}
+
+	@Unique
+	private static Pool<SpawnSettings.SpawnEntry> applySpawnRules(
+			Pool<SpawnSettings.SpawnEntry> original, ServerWorld world, BlockPos pos, SpawnGroup spawnGroup
 	) {
 		MutableBoolean hasBlockers = new MutableBoolean(false);
 		var zones = ZoneManager.getInstance(world.getServer()).getZonesAt(world.getRegistryKey(), pos, zone -> {
@@ -78,7 +105,7 @@ public class MixinSpawnHelper {
 				}
 			}
 			return Pool.of(spawns);
- 		}
+		}
 		return original;
 	}
 
@@ -94,7 +121,26 @@ public class MixinSpawnHelper {
 			SpawnHelper.Runner runner, CallbackInfo ci, @Local SpawnSettings.SpawnEntry spawnEntry,
 			@Local MobEntity mob
 	) {
-		//Apply nbt once first in order for spawn check to check it.
+		applyNBTBeforeSpawnCheck(spawnEntry, mob);
+	}
+
+	@Inject(
+			at = @At(
+					value = "INVOKE",
+					target = "Lnet/minecraft/entity/mob/MobEntity;canSpawn(Lnet/minecraft/world/WorldAccess;Lnet/minecraft/entity/SpawnReason;)Z"
+			),
+			method = "populateEntities"
+	)
+	private static void addNBTBeforeSpawnCheck(
+			ServerWorldAccess world, RegistryEntry<Biome> biomeEntry, ChunkPos chunkPos, Random random,
+			CallbackInfo ci, @Local SpawnSettings.SpawnEntry spawnEntry, @Local MobEntity mob
+	) {
+		applyNBTBeforeSpawnCheck(spawnEntry, mob);
+	}
+
+	@Unique
+	private static void applyNBTBeforeSpawnCheck(SpawnSettings.SpawnEntry spawnEntry, MobEntity mob) {
+		//Apply nbt before spawn check to allow modified nbt to impact the spawn check.
 		if (spawnEntry instanceof BetterSpawnEntry betterSpawnEntry) {
 			var nbt = mob.writeNbt(new NbtCompound());
 			nbt.copyFrom(betterSpawnEntry.nbt);
@@ -107,7 +153,10 @@ public class MixinSpawnHelper {
 			value = "INVOKE",
 			target = "Lnet/minecraft/entity/mob/MobEntity;initialize(Lnet/minecraft/world/ServerWorldAccess;Lnet/minecraft/world/LocalDifficulty;Lnet/minecraft/entity/SpawnReason;Lnet/minecraft/entity/EntityData;Lnet/minecraft/nbt/NbtCompound;)Lnet/minecraft/entity/EntityData;"
 		),
-		method = "spawnEntitiesInChunk(Lnet/minecraft/entity/SpawnGroup;Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/world/chunk/Chunk;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/world/SpawnHelper$Checker;Lnet/minecraft/world/SpawnHelper$Runner;)V"
+		method = {
+				"spawnEntitiesInChunk(Lnet/minecraft/entity/SpawnGroup;Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/world/chunk/Chunk;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/world/SpawnHelper$Checker;Lnet/minecraft/world/SpawnHelper$Runner;)V",
+				"populateEntities"
+		}
 	)
 	private static EntityData onSpawnEntities(
 			MobEntity mob, ServerWorldAccess world, LocalDifficulty difficulty,
@@ -118,7 +167,7 @@ public class MixinSpawnHelper {
 			EntityData data = null;
 			if (betterSpawnEntry.shouldInitialise) {
 				data = initialise.call(mob, world, difficulty, spawnReason, entityData, entityNbt);
-				var nbt = mob.writeNbt(new NbtCompound()); //Apply nbt again after initialisation ()
+				var nbt = mob.writeNbt(new NbtCompound()); //Apply nbt again after initialisation since initialisation might remove stuff.
 				nbt.copyFrom(betterSpawnEntry.nbt);
 				mob.readNbt(nbt);
 			}
