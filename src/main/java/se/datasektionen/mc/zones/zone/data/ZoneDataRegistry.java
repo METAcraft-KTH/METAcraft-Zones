@@ -5,6 +5,7 @@ import net.fabricmc.fabric.api.event.registry.FabricRegistryBuilder;
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKey;
 import se.datasektionen.mc.zones.METAcraftZones;
+import se.datasektionen.mc.zones.spawns.SpawnRemoverRegistry;
 import se.datasektionen.mc.zones.spawns.SpawnRuleRegistry;
 
 import java.util.ArrayList;
@@ -31,7 +32,7 @@ public class ZoneDataRegistry {
 	);
 
 	public static void init() {
-		//DO NOT REMOVE!
+		SpawnRemoverRegistry.init();
 	}
 
 }

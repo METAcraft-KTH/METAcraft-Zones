@@ -18,7 +18,7 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.biome.Biome;
 import org.apache.commons.lang3.mutable.MutableBoolean;
-import se.datasektionen.mc.zones.ZoneCommandUtils;
+import se.datasektionen.mc.zones.util.ZoneCommandUtils;
 import se.datasektionen.mc.zones.ZoneManagementCommand;
 import se.datasektionen.mc.zones.zone.Zone;
 import se.datasektionen.mc.zones.zone.ZoneRegistry;

@@ -5,7 +5,7 @@ import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.server.command.ServerCommandSource;
-import se.datasektionen.mc.zones.ZoneCommandUtils;
+import se.datasektionen.mc.zones.util.ZoneCommandUtils;
 import se.datasektionen.mc.zones.ZoneManagementCommand;
 import se.datasektionen.mc.zones.zone.Zone;
 

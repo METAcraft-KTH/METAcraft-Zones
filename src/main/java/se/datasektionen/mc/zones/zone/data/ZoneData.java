@@ -4,11 +4,7 @@ import com.mojang.serialization.Codec;
 import net.minecraft.text.Text;
 import se.datasektionen.mc.zones.zone.Zone;
 
-import java.util.Timer;
-
 public abstract class ZoneData {
-
-	protected static final Timer TIMER = new Timer(true);
 
 	protected transient Zone zone;
 

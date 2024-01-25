@@ -5,7 +5,7 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.util.math.BlockPos;
-import se.datasektionen.mc.zones.ZoneCommandUtils;
+import se.datasektionen.mc.zones.util.ZoneCommandUtils;
 import se.datasektionen.mc.zones.ZoneManagementCommand;
 import se.datasektionen.mc.zones.zone.Zone;
 import se.datasektionen.mc.zones.zone.ZoneRegistry;

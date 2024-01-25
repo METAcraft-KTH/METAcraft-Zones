@@ -70,27 +70,25 @@ public abstract class MixinSpawnHelper {
 	private static Pool<SpawnSettings.SpawnEntry> applySpawnRules(
 			Pool<SpawnSettings.SpawnEntry> original, ServerWorld world, BlockPos pos, SpawnGroup spawnGroup
 	) {
-		MutableBoolean hasBlockers = new MutableBoolean(false);
+		MutableBoolean hasRemovers = new MutableBoolean(false);
 		var zones = ZoneManager.getInstance(world.getServer()).getZonesAt(world.getRegistryKey(), pos, zone -> {
 			return zone.get(ZoneDataRegistry.SPAWN).map(data -> {
-				if (!data.getSpawnBlockers().isEmpty()) {
-					hasBlockers.setTrue();
+				if (!data.getSpawnRemovers().isEmpty()) {
+					hasRemovers.setTrue();
 				}
-				return !data.getSpawns().isEmpty() || !data.getSpawnBlockers().isEmpty();
+				return !data.getSpawns().isEmpty() || !data.getSpawnRemovers().isEmpty();
 			}).orElse(false);
 		}).toList();
 		if (!zones.isEmpty()) {
 			var spawns = original.getEntries();
-			if (hasBlockers.isTrue()) {
+			if (hasRemovers.isTrue()) {
 				Multimap<EntityType<?>, SpawnSettings.SpawnEntry> spawnsMap = spawns.stream().collect(
 						Multimaps.toMultimap(entry -> entry.type, entry -> entry, HashMultimap::create)
 				);
 				for (var zone : zones) {
 					zone.get(ZoneDataRegistry.SPAWN).ifPresent(spawnData -> {
-						for (var blocker : spawnData.getSpawnBlockers()) {
-							for (var type : blocker.types()) {
-								spawnsMap.removeAll(type.value());
-							}
+						for (var blocker : spawnData.getSpawnRemovers()) {
+							blocker.removeEntities(spawnGroup, spawnsMap);
 						}
 					});
 				}

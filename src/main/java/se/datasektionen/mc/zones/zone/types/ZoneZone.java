@@ -6,7 +6,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.util.math.BlockPos;
 import se.datasektionen.mc.zones.METAcraftZones;
-import se.datasektionen.mc.zones.ZoneCommandUtils;
+import se.datasektionen.mc.zones.util.ZoneCommandUtils;
 import se.datasektionen.mc.zones.ZoneManagementCommand;
 import se.datasektionen.mc.zones.ZoneManager;
 import se.datasektionen.mc.zones.zone.Zone;
@@ -46,11 +46,11 @@ public class ZoneZone extends ZoneType {
 		this(zone, 0);
 	}
 
-	private boolean checkingZone = false;
+	private final ThreadLocal<Boolean> checkingZone = ThreadLocal.withInitial(() -> false);
 
 	//This is weird to help guard against stack overflows.
 	protected <T> Function<Function<Zone, T>, Optional<T>> getZone() {
-		if (checkingZone) {
+		if (checkingZone.get()) {
 			METAcraftZones.LOGGER.error("Warning, zone stack overflow detected in zone " + getZoneRef().getName() + "!");
 			return getter -> Optional.empty();
 		}
@@ -67,9 +67,9 @@ public class ZoneZone extends ZoneType {
 			});
 		}
 		return getter -> {
-			checkingZone = true;
+			checkingZone.set(true);
 			var opt = Optional.ofNullable(zoneCache).map(getter);
-			checkingZone = false;
+			checkingZone.remove();
 			return opt;
 		};
 	}

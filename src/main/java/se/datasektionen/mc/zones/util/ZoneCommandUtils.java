@@ -1,4 +1,4 @@
-package se.datasektionen.mc.zones;
+package se.datasektionen.mc.zones.util;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.ArgumentBuilder;
@@ -18,6 +18,8 @@ import net.minecraft.nbt.NbtOps;
 import net.minecraft.registry.RegistryOps;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.Text;
+import se.datasektionen.mc.zones.METAcraftZones;
+import se.datasektionen.mc.zones.ZoneManager;
 import se.datasektionen.mc.zones.zone.RealZone;
 import se.datasektionen.mc.zones.zone.ZoneRegistry;
 import se.datasektionen.mc.zones.zone.types.ZoneType;

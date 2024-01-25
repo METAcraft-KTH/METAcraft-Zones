@@ -4,6 +4,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
+import com.mojang.datafixers.util.Either;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
@@ -15,7 +16,9 @@ import net.minecraft.predicate.entity.EntityTypePredicate;
 import net.minecraft.util.StringIdentifiable;
 import se.datasektionen.mc.zones.METAcraftZones;
 import se.datasektionen.mc.zones.spawns.BetterSpawnEntry;
+import se.datasektionen.mc.zones.spawns.SpawnRemoverRegistry;
 import se.datasektionen.mc.zones.spawns.rules.SpawnRule;
+import se.datasektionen.mc.zones.util.CodecHelper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,24 +45,30 @@ public class AdditionalSpawnsZoneData extends ZoneDataEntityTracking {
 		).collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
 	});
 
+	private static final Codec<SpawnRemoverRegistry.SpawnRemover> backwardsCompatCodec = Codec.either(
+			EntityTypePredicate.CODEC, SpawnRemoverRegistry.SpawnRemover.REGISTRY_CODEC
+	).xmap(either -> either.map(SpawnRemoverRegistry.TypesSpawnRemover::new, remover -> remover), Either::right);
+
 	public static final Codec<AdditionalSpawnsZoneData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
 			SPAWN_ENTRY_MAP_CODEC.fieldOf("spawns").forGetter(data -> data.spawns),
-			EntityTypePredicate.CODEC.listOf().fieldOf("defaultSpawnBlockers").forGetter(data -> data.defaultSpawnBlockers),
+			CodecHelper.fieldOfWithMigration(
+					backwardsCompatCodec.listOf(), "spawnRemovers", "defaultSpawnBlockers"
+			).forGetter(data -> data.spawnRemovers),
 			SpawnRuleEntry.CODEC.listOf().fieldOf("spawnRules").forGetter(data -> data.rules)
 	).apply(instance, AdditionalSpawnsZoneData::new));
 
 
 	private final ListMultimap<SpawnGroup, BetterSpawnEntry> spawns;
-	private final List<EntityTypePredicate> defaultSpawnBlockers;
+	private final List<SpawnRemoverRegistry.SpawnRemover> spawnRemovers;
 
 	private final List<SpawnRuleEntry> rules;
 
 	public AdditionalSpawnsZoneData(
-			Multimap<SpawnGroup, BetterSpawnEntry> spawns, List<EntityTypePredicate> defaultSpawnBlockers,
+			Multimap<SpawnGroup, BetterSpawnEntry> spawns, List<SpawnRemoverRegistry.SpawnRemover> spawnRemovers,
 			List<SpawnRuleEntry> rules
 	)  {
 		this.spawns = MultimapBuilder.hashKeys().arrayListValues().build(spawns);
-		this.defaultSpawnBlockers = new ArrayList<>(defaultSpawnBlockers);
+		this.spawnRemovers = new ArrayList<>(spawnRemovers);
 		this.rules = new ArrayList<>(rules);
 	}
 
@@ -67,8 +76,8 @@ public class AdditionalSpawnsZoneData extends ZoneDataEntityTracking {
 		return spawns;
 	}
 
-	public List<EntityTypePredicate> getSpawnBlockers() {
-		return defaultSpawnBlockers;
+	public List<SpawnRemoverRegistry.SpawnRemover> getSpawnRemovers() {
+		return spawnRemovers;
 	}
 
 	public List<SpawnRuleEntry> getSpawnRules() {

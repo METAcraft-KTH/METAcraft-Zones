@@ -35,7 +35,9 @@ import org.apache.commons.lang3.mutable.MutableInt;
 import se.datasektionen.mc.zones.mixin.AccessorStringRange;
 import se.datasektionen.mc.zones.mixin.AccessorSuggestion;
 import se.datasektionen.mc.zones.spawns.BetterSpawnEntry;
+import se.datasektionen.mc.zones.spawns.SpawnRemoverRegistry;
 import se.datasektionen.mc.zones.spawns.rules.SpawnRule;
+import se.datasektionen.mc.zones.util.ZoneCommandUtils;
 import se.datasektionen.mc.zones.zone.RealZone;
 import se.datasektionen.mc.zones.zone.ZoneRegistry;
 import se.datasektionen.mc.zones.zone.data.AdditionalSpawnsZoneData;
@@ -46,7 +48,6 @@ import se.datasektionen.mc.zones.zone.types.*;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static net.minecraft.server.command.CommandManager.argument;
@@ -275,54 +276,173 @@ public class ZoneManagementCommand {
 		).then(
 				messageCommand("exit-command", MessageZoneData::getLeaveCommand, MessageZoneData::setLeaveCommand, dispatcher)
 		).then(
-				spawnRuleCommand(
-						"spawns", create(ImmutableList.of(spawnGroup("spawnGroup"), argument("data", NbtCompoundArgumentType.nbtCompound()))),
-						() -> Optional.of(create(ImmutableList.of(spawnGroup("spawnGroup")))),
-						(data, ctx) -> {
-							return data.getSpawns().get(getSpawnGroup(ctx, "spawnGroup"));
-						}, ctx -> {
-							var nbt = NbtCompoundArgumentType.getNbtCompound(ctx, "data");
-							return BetterSpawnEntry.CODEC.parse(NbtOps.INSTANCE, nbt).resultOrPartial(
-									err -> ctx.getSource().sendError(Text.literal(err))
+			literal("spawns").then(
+				literal("add").then(
+					zone().then(
+						spawnGroup("spawnGroup").then(
+							argument("data", NbtCompoundArgumentType.nbtCompound()).executes(ctx -> {
+								var spawnEntry = BetterSpawnEntry.CODEC.parse(
+										NbtOps.INSTANCE, NbtCompoundArgumentType.getNbtCompound(ctx, "data")
+								).resultOrPartial(
+										err -> ctx.getSource().sendError(Text.literal(err))
+								);
+								return addSpawnRule(
+										ctx, "spawn", spawnEntry,
+										data -> data.getSpawns().get(getSpawnGroup(ctx, "spawnGroup"))
+								);
+							})
+						)
+					)
+				)
+			).then(
+				literal("remove").then(
+					zone().then(
+						spawnGroup("spawnGroup").then(
+							argument("index", IntegerArgumentType.integer(0)).executes(ctx -> {
+								return removeSpawnRule(
+										ctx, "spawn", BetterSpawnEntry::toString,
+										data -> data.getSpawns().get(getSpawnGroup(ctx, "spawnGroup"))
+								);
+							})
+						)
+					)
+				)
+			).then(
+				literal("list").then(
+					zone().then(
+						spawnGroup("spawnGroup").executes(ctx -> {
+							return listSpawnRules(
+									ctx, "spawn", BetterSpawnEntry::toString,
+									data -> data.getSpawns().get(getSpawnGroup(ctx, "spawnGroup"))
 							);
-						}, "spawn", BetterSpawnEntry::toString
-				)
-		).then(
-				spawnRuleCommand(
-						"spawnblockers",
-						create(ImmutableList.of(argument("entity", RegistryPredicateArgumentType.registryPredicate(RegistryKeys.ENTITY_TYPE)))),
-						Optional::empty,
-						(data, ctx) -> data.getSpawnBlockers(),
-						ctx -> {
-							var predicate = RegistryPredicateArgumentType.getPredicate(ctx, "entity", RegistryKeys.ENTITY_TYPE, ENTITY_FAIL);
-							return predicate.getKey().map(
-									entity -> Optional.ofNullable(Registries.ENTITY_TYPE.get(entity)).map(EntityTypePredicate::create),
-									entityTag -> Optional.of(EntityTypePredicate.create(entityTag))
+						})
+					).executes(ctx -> {
+						int returnNum = 0;
+						for (SpawnGroup group : SpawnGroup.values()) {
+							ctx.getSource().sendFeedback(() -> Text.literal("\n" + group.getName() + ":"), false);
+							returnNum += listSpawnRules(
+									ctx, "spawn", BetterSpawnEntry::toString,
+									data -> data.getSpawns().get(group)
 							);
-						}, "spawn blocker", blocker -> EntityTypePredicate.CODEC.encodeStart(NbtOps.INSTANCE, blocker).resultOrPartial(
-								METAcraftZones.LOGGER::error
-						).map(NbtElement::asString).orElse("Error")
+						}
+						return returnNum;
+					})
 				)
+			)
 		).then(
-				spawnRuleCommand(
-						"spawnrules", create(ImmutableList.of(
-								argument("entity", RegistryPredicateArgumentType.registryPredicate(RegistryKeys.ENTITY_TYPE)),
-								argument("data", NbtCompoundArgumentType.nbtCompound())
-						)), Optional::empty, (data, ctx) -> data.getSpawnRules(), ctx -> {
-							var predicate = RegistryPredicateArgumentType.getPredicate(ctx, "entity", RegistryKeys.ENTITY_TYPE, ENTITY_FAIL);
-							var data = NbtCompoundArgumentType.getNbtCompound(ctx, "data");
-							return predicate.getKey().map(
-									entity -> Optional.ofNullable(Registries.ENTITY_TYPE.get(entity)).map(EntityTypePredicate::create),
-									entityTag -> Optional.of(EntityTypePredicate.create(entityTag))
-							).flatMap(entity -> {
-								return SpawnRule.REGISTRY_CODEC.parse(NbtOps.INSTANCE, data).resultOrPartial(
-										error -> ctx.getSource().sendError(Text.literal(error))
-								).map(rule -> new AdditionalSpawnsZoneData.SpawnRuleEntry(entity, rule));
-							});
-						}, "spawn rule", rule -> AdditionalSpawnsZoneData.SpawnRuleEntry.CODEC.encodeStart(NbtOps.INSTANCE, rule).resultOrPartial(
-								METAcraftZones.LOGGER::error
-						).map(NbtElement::asString).orElse("Error")
+			literal("spawnremovers").then(
+				literal("add").then(
+					zone().then(
+						literal("types").then(
+							argument("entity", RegistryPredicateArgumentType.registryPredicate(RegistryKeys.ENTITY_TYPE)).executes(ctx -> {
+								return addSpawnRule(
+										ctx, "spawn remover",
+										RegistryPredicateArgumentType.getPredicate(
+												ctx, "entity", RegistryKeys.ENTITY_TYPE, ENTITY_FAIL
+										).getKey().map(
+												entity -> Optional.ofNullable(Registries.ENTITY_TYPE.get(entity)).map(EntityTypePredicate::create),
+												entityTag -> Optional.of(EntityTypePredicate.create(entityTag))
+										).map(SpawnRemoverRegistry.TypesSpawnRemover::new),
+										AdditionalSpawnsZoneData::getSpawnRemovers
+								);
+							})
+						)
+					).then(
+						spawnGroup("spawnGroup").executes(ctx -> {
+							return addSpawnRule(
+									ctx, "spawn remover",
+									Optional.of(new SpawnRemoverRegistry.SpawnGroupSpawnRemover(
+											getSpawnGroup(ctx, "spawnGroup")
+									)),
+									AdditionalSpawnsZoneData::getSpawnRemovers
+							);
+						})
+					).then(
+						literal("*").executes(ctx -> {
+							return addSpawnRule(
+									ctx, "spawn remover",
+									Optional.of(SpawnRemoverRegistry.AllSpawnRemover.INSTANCE),
+									AdditionalSpawnsZoneData::getSpawnRemovers
+							);
+						})
+					)
 				)
+			).then(
+				literal("remove").then(
+					zone().then(
+						argument("index", IntegerArgumentType.integer(0)).executes(ctx -> {
+							return removeSpawnRule(
+									ctx, "spawn remover",
+									blocker -> SpawnRemoverRegistry.SpawnRemover.REGISTRY_CODEC.encodeStart(NbtOps.INSTANCE, blocker).resultOrPartial(
+											METAcraftZones.LOGGER::error
+									).map(NbtElement::asString).orElse("Error"),
+									AdditionalSpawnsZoneData::getSpawnRemovers
+							);
+						})
+					)
+				)
+			).then(
+				literal("list").then(
+					zone().executes(ctx -> {
+						return listSpawnRules(
+								ctx, "spawn remover",
+								blocker -> SpawnRemoverRegistry.SpawnRemover.REGISTRY_CODEC.encodeStart(NbtOps.INSTANCE, blocker).resultOrPartial(
+										METAcraftZones.LOGGER::error
+								).map(NbtElement::asString).orElse("Error"),
+								AdditionalSpawnsZoneData::getSpawnRemovers
+						);
+					})
+				)
+			)
+		).then(
+			literal("spawnrules").then(
+				literal("add").then(
+					zone().then(
+						argument("entity", RegistryPredicateArgumentType.registryPredicate(RegistryKeys.ENTITY_TYPE)).then(
+							argument("data", NbtCompoundArgumentType.nbtCompound()).executes(ctx -> {
+								return addSpawnRule(
+									ctx, "spawn rule",
+									RegistryPredicateArgumentType.getPredicate(ctx, "entity", RegistryKeys.ENTITY_TYPE, ENTITY_FAIL).getKey().map(
+											entity -> Optional.ofNullable(Registries.ENTITY_TYPE.get(entity)).map(EntityTypePredicate::create),
+											entityTag -> Optional.of(EntityTypePredicate.create(entityTag))
+									).flatMap(entity -> {
+										return SpawnRule.REGISTRY_CODEC.parse(NbtOps.INSTANCE, NbtCompoundArgumentType.getNbtCompound(ctx, "data")).resultOrPartial(
+												error -> ctx.getSource().sendError(Text.literal(error))
+										).map(rule -> new AdditionalSpawnsZoneData.SpawnRuleEntry(entity, rule));
+									}),
+									AdditionalSpawnsZoneData::getSpawnRules
+								);
+							})
+						)
+					)
+				)
+			).then(
+				literal("remove").then(
+					zone().then(
+						argument("index", IntegerArgumentType.integer(0)).executes(ctx -> {
+							return removeSpawnRule(
+									ctx, "spawn rule",
+									rule -> AdditionalSpawnsZoneData.SpawnRuleEntry.CODEC.encodeStart(NbtOps.INSTANCE, rule).resultOrPartial(
+											METAcraftZones.LOGGER::error
+									).map(NbtElement::asString).orElse("Error"),
+									AdditionalSpawnsZoneData::getSpawnRules
+							);
+						})
+					)
+				)
+			).then(
+				literal("list").then(
+					zone().executes(ctx -> {
+						return listSpawnRules(
+								ctx, "spawn rule",
+								rule -> AdditionalSpawnsZoneData.SpawnRuleEntry.CODEC.encodeStart(NbtOps.INSTANCE, rule).resultOrPartial(
+										METAcraftZones.LOGGER::error
+								).map(NbtElement::asString).orElse("Error"),
+								AdditionalSpawnsZoneData::getSpawnRules
+						);
+					})
+				)
+			)
 		);
 	}
 
@@ -331,126 +451,70 @@ public class ZoneManagementCommand {
 		R apply(T var1) throws CommandSyntaxException;
 	}
 
-	@FunctionalInterface
-	public interface BiFunctionForCommands<T, U, R> {
-		R apply(T var1, U var2) throws CommandSyntaxException;
-	}
-
-	public static class ArgumentSequence {
-
-		protected ArgumentBuilder<ServerCommandSource, ?> outermost;
-		protected ArgumentBuilder<ServerCommandSource, ?> innermost;
-		protected List<ArgumentBuilder<ServerCommandSource, ?>> list;
-
-		protected ArgumentSequence() {}
-
-		public static ArgumentSequence from(List<ArgumentBuilder<ServerCommandSource, ?>> list) {
-			var sequence = new ArgumentSequence();
-			sequence.outermost = list.get(0);
-			sequence.innermost = list.get(list.size()-1);
-			sequence.list = new ArrayList<>(list);
-			return sequence;
-		}
-
-		public static ArgumentSequence from(ArgumentBuilder<ServerCommandSource, ?> arg) {
-			return from(ImmutableList.of(arg));
-		}
-
-		public ArgumentSequence appendBeginning(ArgumentBuilder<ServerCommandSource, ?> arg) {
-			list.add(0, arg);
-			outermost = arg;
-			return this;
-		}
-
-		public void finalise() {
-			for (int i = list.size()-2; i >= 0; i--) {
-				list.get(i).then(list.get(i+1));
-			}
+	private static <T> int addSpawnRule(
+			CommandContext<ServerCommandSource> ctx,
+			String nameOfObject,
+			Optional<T> creatorFromArgs,
+			FunctionForCommands<AdditionalSpawnsZoneData, List<T>> dataGetter
+	) throws CommandSyntaxException {
+		var zone = getZone(ctx);
+		var data = creatorFromArgs.orElse(null);
+		if (data != null) {
+			var spawnData = zone.getOrCreate(ZoneDataRegistry.SPAWN);
+			dataGetter.apply(spawnData).add(data);
+			spawnData.markDirty();
+			ctx.getSource().sendFeedback(() -> Text.literal("Added " + nameOfObject + " to " + zone.getName()), true);
+			return 1;
+		} else {
+			return 0;
 		}
 	}
 
-	private static ArgumentSequence create(List<ArgumentBuilder<ServerCommandSource, ?>> list) {
-		return ArgumentSequence.from(list);
-	}
-
-	private static <T> ArgumentBuilder<ServerCommandSource, ?> spawnRuleCommand(
-			String name, ArgumentSequence creatorArgs, Supplier<Optional<ArgumentSequence>> fetchArgs,
-			BiFunctionForCommands<AdditionalSpawnsZoneData, CommandContext<ServerCommandSource>, List<T>> dataGetter,
-			FunctionForCommands<CommandContext<ServerCommandSource>, Optional<T>> creatorFromArgs,
-			String nameOfObject, Function<T, String> printer
-	) {
-		creatorArgs.innermost.executes(ctx -> {
-			var zone = getZone(ctx);
-			var data = creatorFromArgs.apply(ctx).orElse(null);
-			if (data != null) {
-				var spawnData = zone.getOrCreate(ZoneDataRegistry.SPAWN);
-				dataGetter.apply(spawnData, ctx).add(data);
-				spawnData.markDirty();
-				ctx.getSource().sendFeedback(() -> Text.literal("Added " + nameOfObject + " to " + zone.getName()), true);
-				return 1;
-			} else {
+	private static <T> int removeSpawnRule(
+			CommandContext<ServerCommandSource> ctx,
+			String nameOfObject, Function<T, String> printer,
+			FunctionForCommands<AdditionalSpawnsZoneData, List<T>> dataGetter
+	) throws CommandSyntaxException {
+		int index = IntegerArgumentType.getInteger(ctx, "index");
+		var zone = getZone(ctx);
+		var data = zone.get(ZoneDataRegistry.SPAWN).orElse(null);
+		if (data != null) {
+			var list = dataGetter.apply(data);
+			if (index >= list.size()) {
+				ctx.getSource().sendError(Text.literal("Index too large"));
 				return 0;
 			}
-		});
-		var removeFetch = fetchArgs.get().map(arg -> arg.appendBeginning(zone())).orElse(ArgumentSequence.from(zone()));
-		removeFetch.innermost.then(
-				argument("index", IntegerArgumentType.integer(0)).executes(ctx -> {
-					int index = IntegerArgumentType.getInteger(ctx, "index");
-					var zone = getZone(ctx);
-					var data = zone.get(ZoneDataRegistry.SPAWN).orElse(null);
-					if (data != null) {
-						var list = dataGetter.apply(data, ctx);
-						if (index >= list.size()) {
-							ctx.getSource().sendError(Text.literal("Index too large"));
-							return 0;
-						}
-						list.remove(index);
-						data.markDirty();
-						ctx.getSource().sendFeedback(() -> Text.literal("Removed " + nameOfObject + " successfully from " + zone.getName()), true);
-					} else {
-						ctx.getSource().sendFeedback(() -> Text.literal("No data"), false);
-						return 0;
-					}
-					return 1;
-				})
-		);
-		var listFetch = fetchArgs.get().map(arg -> arg.appendBeginning(zone())).orElse(ArgumentSequence.from(zone()));
-		listFetch.innermost.executes(ctx -> {
-			var zone = getZone(ctx);
-			var data = zone.get(ZoneDataRegistry.SPAWN).orElse(null);
-			if (data != null) {
-				var objects = dataGetter.apply(data, ctx);
-				MutableInt i = new MutableInt(0);
-				for (var o : objects) {
-					ctx.getSource().sendFeedback(() -> Text.literal(i.getAndIncrement() + ": " + printer.apply(o)), false);
-				}
-				if (objects.isEmpty()) {
-					ctx.getSource().sendFeedback(() -> Text.literal("No " + nameOfObject + "s defined"), false);
-				}
-				return objects.size();
-			} else {
-				ctx.getSource().sendFeedback(() -> Text.literal("No data"), false);
-				return 0;
+			var entry = list.remove(index);
+			data.markDirty();
+			ctx.getSource().sendFeedback(() -> Text.literal("Removed " + nameOfObject + " " + printer.apply(entry) + " successfully from " + zone.getName()), true);
+		} else {
+			ctx.getSource().sendFeedback(() -> Text.literal("No data"), false);
+			return 0;
+		}
+		return 1;
+	}
+
+	private static <T> int listSpawnRules(
+			CommandContext<ServerCommandSource> ctx,
+			String nameOfObject, Function<T, String> printer,
+			FunctionForCommands<AdditionalSpawnsZoneData, List<T>> dataGetter
+	) throws CommandSyntaxException {
+		var zone = getZone(ctx);
+		var data = zone.get(ZoneDataRegistry.SPAWN).orElse(null);
+		if (data != null) {
+			var objects = dataGetter.apply(data);
+			MutableInt i = new MutableInt(0);
+			for (var o : objects) {
+				ctx.getSource().sendFeedback(() -> Text.literal(i.getAndIncrement() + ": " + printer.apply(o)), false);
 			}
-		});
-		creatorArgs.finalise();
-		removeFetch.finalise();
-		listFetch.finalise();
-		return literal(name).then(
-				literal("add").then(
-						zone().then(
-								creatorArgs.outermost
-						)
-				)
-		).then(
-				literal("remove").then(
-						removeFetch.outermost
-				)
-		).then(
-				literal("list").then(
-						listFetch.outermost
-				)
-		);
+			if (objects.isEmpty()) {
+				ctx.getSource().sendFeedback(() -> Text.literal("No " + nameOfObject + "s defined"), false);
+			}
+			return objects.size();
+		} else {
+			ctx.getSource().sendFeedback(() -> Text.literal("No data"), false);
+			return 0;
+		}
 	}
 
 	private static ArgumentBuilder<ServerCommandSource, ?> spawnGroup(String name) {
