@@ -42,8 +42,8 @@ public abstract class CombinedZone extends ZoneType {
 		};
 		final int maxLength = 10;
 		var currentPoint = ZoneCommandUtils.zoneType("zone" + maxLength).executes(commandExecution.apply(maxLength));
-		for (int i = maxLength-1; i > 0; i--) {
-			var next = ZoneCommandUtils.zoneType("zone" + i).executes(commandExecution.apply(i));
+		for (int i = maxLength; i > 0; i--) {
+			var next = ZoneCommandUtils.zoneType("zone" + (i-1)).executes(commandExecution.apply(i));
 			next.then(currentPoint);
 			currentPoint = next;
 		}
