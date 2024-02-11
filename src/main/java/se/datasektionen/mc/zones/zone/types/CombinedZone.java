@@ -5,20 +5,27 @@ import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.util.math.BlockPos;
+import se.datasektionen.mc.zones.util.LockHelper;
 import se.datasektionen.mc.zones.util.ZoneCommandUtils;
 import se.datasektionen.mc.zones.ZoneManagementCommand;
 import se.datasektionen.mc.zones.zone.Zone;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public abstract class CombinedZone extends ZoneType {
 
+
 	protected final List<ZoneType> zones;
 	protected double size;
+
+	protected final ReadWriteLock lock = new ReentrantReadWriteLock();
 
 	public static <T extends CombinedZone> Codec<T> getCodec(Function<List<ZoneType>, T> creator) {
 		return RecordCodecBuilder.create(instance -> instance.group(
@@ -61,19 +68,32 @@ public abstract class CombinedZone extends ZoneType {
 	protected abstract double getSize(Iterable<ZoneType> zones);
 	protected abstract double updateSize(ZoneType newZone, UpdateDirection direction);
 
+	@Override
+	public boolean contains(BlockPos pos) {
+		return LockHelper.getThroughLock(lock.readLock(), () -> combinedZoneContains(pos));
+	}
+
+	public abstract boolean combinedZoneContains(BlockPos pos);
+
 	public void addZone(ZoneType zone) {
+		lock.writeLock().lock();
 		zones.add(zone);
 		size = updateSize(zone, UpdateDirection.ADD);
+		lock.writeLock().unlock();
 	}
 
 	public ZoneType removeZone(int index) {
+		lock.writeLock().lock();
 		var removed = zones.remove(index);
 		size = updateSize(removed, UpdateDirection.REMOVE);
+		lock.writeLock().unlock();
 		return removed;
 	}
 
 	public void forEach(Consumer<ZoneType> consumer) {
+		lock.readLock().lock();
 		zones.forEach(consumer);
+		lock.readLock().unlock();
 	}
 
 	public int zoneCount() {
@@ -88,10 +108,12 @@ public abstract class CombinedZone extends ZoneType {
 	public void setZoneRef(Zone zone) {
 		super.setZoneRef(zone);
 		if (zone != null) {
+			lock.readLock().lock();
 			for (ZoneType type : zones) {
 				type.setZoneRef(zone);
 			}
 			size = getSize(zones);
+			lock.readLock().unlock();
 		}
 	}
 
@@ -102,12 +124,20 @@ public abstract class CombinedZone extends ZoneType {
 
 	@Override
 	public ZoneType copy() {
-		return copy(zones.stream().map(ZoneType::copy).collect(Collectors.toList()));
+		return LockHelper.getThroughLock(
+				lock.readLock(),
+				() -> copy(zones.stream().map(ZoneType::copy).collect(Collectors.toList()))
+		);
 	}
 
 	@Override
 	public String toString() {
-		return getClass().getSimpleName().replace("Zone", "") + "[" + zones.stream().map(ZoneType::toString).collect(Collectors.joining(", ")) + "]";
+		return LockHelper.getThroughLock(
+				lock.readLock(),
+				() ->getClass().getSimpleName().replace("Zone", "") + "[" + zones.stream().map(
+						ZoneType::toString
+				).collect(Collectors.joining(", ")) + "]"
+		);
 	}
 
 	protected abstract ZoneType copy(List<ZoneType> newZones);

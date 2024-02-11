@@ -14,10 +14,10 @@ import se.datasektionen.mc.zones.zone.Zone;
 import se.datasektionen.mc.zones.zone.ZoneMap;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 public class ZoneManager extends PersistentState {
 
@@ -76,12 +76,12 @@ public class ZoneManager extends PersistentState {
 		}
 	}
 
-	public Stream<Zone> getZonesMatching(RegistryKey<World> dim, Predicate<Zone> zonePredicate) {
-		return zones.getZones(dim).stream().filter(zonePredicate);
+	public List<Zone> getZonesMatching(RegistryKey<World> dim, Predicate<Zone> zonePredicate) {
+		return zones.getZones(dim, zonePredicate);
 	}
 
 	public Optional<Zone> getFirstZoneMatching(RegistryKey<World> dim, Predicate<Zone> zonePredicate) {
-		return getZonesMatching(dim, zonePredicate).findFirst();
+		return zones.getFirstZoneMatching(dim, zonePredicate);
 	}
 
 	public Optional<Zone> getZoneAt(RegistryKey<World> dim, BlockPos pos, Predicate<Zone> zonePredicate) {
@@ -92,7 +92,7 @@ public class ZoneManager extends PersistentState {
 		return getFirstZoneMatching(dim, zone -> zone.contains(pos));
 	}
 
-	public Stream<Zone> getZonesAt(RegistryKey<World> dim, BlockPos pos, Predicate<Zone> additionaLPredicate) {
+	public List<Zone> getZonesAt(RegistryKey<World> dim, BlockPos pos, Predicate<Zone> additionaLPredicate) {
 		return getZonesMatching(dim, zone -> zone.contains(pos) && additionaLPredicate.test(zone));
 	}
 
@@ -106,7 +106,7 @@ public class ZoneManager extends PersistentState {
 	}
 
 	public <T> Optional<T> getValueForPrimaryZone(RegistryKey<World> dim, Function<Zone, Optional<T>> valueGetter) {
-		return zones.getZones(dim).stream().map(valueGetter).filter(Optional::isPresent).map(Optional::get).findFirst();
+		return zones.getValueForPrimaryZone(dim, valueGetter);
 	}
 
 	public ZoneMap getZones() {
@@ -131,10 +131,6 @@ public class ZoneManager extends PersistentState {
 
 	public void updatePriority(RealZone zone) {
 		zones.updatePriority(zone);
-	}
-
-	public Collection<Zone> getZones(RegistryKey<World> dim) {
-		return zones.getZones(dim);
 	}
 
 	public Collection<String> getZoneNames() {

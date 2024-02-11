@@ -32,7 +32,7 @@ public class UnionZone extends CombinedZone {
 	}
 
 	@Override
-	public boolean contains(BlockPos pos) {
+	public boolean combinedZoneContains(BlockPos pos) {
 		for (var zone : zones) {
 			if (zone.contains(pos)) {
 				return true;

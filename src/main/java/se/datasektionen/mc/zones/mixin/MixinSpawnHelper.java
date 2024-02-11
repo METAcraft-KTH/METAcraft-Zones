@@ -78,7 +78,7 @@ public abstract class MixinSpawnHelper {
 				}
 				return !data.getSpawns().isEmpty() || !data.getSpawnRemovers().isEmpty();
 			}).orElse(false);
-		}).toList();
+		});
 		if (!zones.isEmpty()) {
 			var spawns = original.getEntries();
 			if (hasRemovers.isTrue()) {
@@ -188,7 +188,7 @@ public abstract class MixinSpawnHelper {
 			return zone.get(ZoneDataRegistry.SPAWN).map(data -> {
 				return !data.getSpawnRules().isEmpty();
 			}).orElse(false);
-		}).toList();
+		});
 		for (var zone : zones) {
 			if (zone.get(ZoneDataRegistry.SPAWN).isPresent()) {
 				var data = zone.get(ZoneDataRegistry.SPAWN).get();

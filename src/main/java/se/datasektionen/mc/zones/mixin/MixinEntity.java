@@ -41,13 +41,14 @@ public abstract class MixinEntity {
 					removeZones.add(currentZone);
 				}
 			}
-			for (Zone zone : ZoneManager.getInstance(getServer()).getZones().getZones(this.world.getRegistryKey())) {
+			ZoneManager.getInstance(getServer()).getZones().forZones(this.world.getRegistryKey(), zone -> {
 				if (!currentZones.contains(zone) && zone.contains(this.getBlockPos())) {
 					currentZones.add(zone);
 					zone.addToZone((Entity) (Object) this);
-					break;
+					return false;
 				}
-			}
+				return true;
+			});
 			currentZones.removeAll(removeZones);
 		}
 	}

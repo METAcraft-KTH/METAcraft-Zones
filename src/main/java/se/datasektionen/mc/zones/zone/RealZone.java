@@ -108,8 +108,8 @@ public class RealZone extends Zone {
 	}
 
 	public void setZone(ZoneType zone) {
-		this.zone = zone;
 		zone.setZoneRef(this);
+		this.zone = zone;
 		markNeedsSave.run();
 	}
 

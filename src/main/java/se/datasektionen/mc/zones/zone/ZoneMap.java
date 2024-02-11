@@ -8,16 +8,25 @@ import net.minecraft.nbt.NbtList;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.World;
+import se.datasektionen.mc.zones.util.LockHelper;
 
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 public class ZoneMap {
 
-	protected Multimap<RegistryKey<World>, Zone> worldZones = MultimapBuilder.hashKeys().treeSetValues().build();
-	protected Map<String, RealZone> zones = new HashMap<>();
+	private final ReadWriteLock worldZoneLock = new ReentrantReadWriteLock();
+
+	protected final Multimap<RegistryKey<World>, Zone> worldZones = MultimapBuilder.hashKeys().treeSetValues().build();
+	protected final Map<String, RealZone> zones = new ConcurrentHashMap<>();
 
 	protected final Runnable markNeedsSave;
 	protected final Consumer<Zone> onAdd;
@@ -38,6 +47,7 @@ public class ZoneMap {
 	}
 
 	private void addZoneInternal(Zone zone) {
+		worldZoneLock.writeLock().lock();
 		if (zone.isRealZone()) {
 			zones.put(zone.getName(), zone.getRealZone());
 		}
@@ -47,6 +57,7 @@ public class ZoneMap {
 				worldZones.put(remoteZone.getDim(), remoteZone);
 			}
 		}
+		worldZoneLock.writeLock().unlock();
 	}
 
 	public boolean removeZone(String name) {
@@ -56,6 +67,7 @@ public class ZoneMap {
 	}
 
 	public void removeZone(Zone zone) {
+		worldZoneLock.writeLock().lock();
 		if (zone.isRealZone()) {
 			zones.remove(zone.getName());
 			onRemove.accept(zone);
@@ -67,14 +79,50 @@ public class ZoneMap {
 				worldZones.remove(remoteZone.getDim(), remoteZone);
 			}
 		}
+		worldZoneLock.writeLock().unlock();
 	}
 
 	public RealZone getZone(String name) {
 		return zones.get(name);
 	}
 
-	public Collection<Zone> getZones(RegistryKey<World> dim) {
-		return worldZones.get(dim);
+	public void forZones(RegistryKey<World> dim, Consumer<Zone> run) {
+		worldZoneLock.readLock().lock();
+		worldZones.get(dim).forEach(run);
+		worldZoneLock.readLock().unlock();
+	}
+
+	public void forZones(RegistryKey<World> dim, Predicate<Zone> shouldContinue) {
+		worldZoneLock.readLock().lock();
+		for (var zone : worldZones.get(dim)) {
+			if (!shouldContinue.test(zone)) {
+				break;
+			}
+		}
+		worldZoneLock.readLock().unlock();
+	}
+
+	public List<Zone> getZones(RegistryKey<World> dim, Predicate<Zone> zonePredicate) {
+		return LockHelper.getThroughLock(
+				worldZoneLock.readLock(),
+				() -> worldZones.get(dim).stream().filter(zonePredicate).toList()
+		);
+	}
+
+	public Optional<Zone> getFirstZoneMatching(RegistryKey<World> dim, Predicate<Zone> zonePredicate) {
+		return LockHelper.getThroughLock(
+				worldZoneLock.readLock(),
+				() -> worldZones.get(dim).stream().filter(zonePredicate).findFirst()
+		);
+	}
+
+	public <T> Optional<T> getValueForPrimaryZone(RegistryKey<World> dim, Function<Zone, Optional<T>> valueGetter) {
+		return LockHelper.getThroughLock(
+				worldZoneLock.readLock(),
+				() -> worldZones.get(dim).stream().map(valueGetter).filter(
+						Optional::isPresent
+				).map(Optional::get).findFirst()
+		);
 	}
 
 	public Collection<String> getZoneNames() {
