@@ -288,7 +288,7 @@ public class ZoneManagementCommand {
 								);
 								return addSpawnRule(
 										ctx, "spawn", spawnEntry,
-										data -> data.getSpawns().get(getSpawnGroup(ctx, "spawnGroup"))
+										data -> data.getSpawns(getSpawnGroup(ctx, "spawnGroup"))
 								);
 							})
 						)
@@ -301,7 +301,7 @@ public class ZoneManagementCommand {
 							argument("index", IntegerArgumentType.integer(0)).executes(ctx -> {
 								return removeSpawnRule(
 										ctx, "spawn", BetterSpawnEntry::toString,
-										data -> data.getSpawns().get(getSpawnGroup(ctx, "spawnGroup"))
+										data -> data.getSpawns(getSpawnGroup(ctx, "spawnGroup"))
 								);
 							})
 						)
@@ -313,7 +313,7 @@ public class ZoneManagementCommand {
 						spawnGroup("spawnGroup").executes(ctx -> {
 							return listSpawnRules(
 									ctx, "spawn", BetterSpawnEntry::toString,
-									data -> data.getSpawns().get(getSpawnGroup(ctx, "spawnGroup"))
+									data -> data.getSpawns(getSpawnGroup(ctx, "spawnGroup"))
 							);
 						})
 					).executes(ctx -> {
@@ -322,7 +322,7 @@ public class ZoneManagementCommand {
 							ctx.getSource().sendFeedback(() -> Text.literal("\n" + group.getName() + ":"), false);
 							returnNum += listSpawnRules(
 									ctx, "spawn", BetterSpawnEntry::toString,
-									data -> data.getSpawns().get(group)
+									data -> data.getSpawns(group)
 							);
 						}
 						return returnNum;
@@ -455,14 +455,13 @@ public class ZoneManagementCommand {
 			CommandContext<ServerCommandSource> ctx,
 			String nameOfObject,
 			Optional<T> creatorFromArgs,
-			FunctionForCommands<AdditionalSpawnsZoneData, List<T>> dataGetter
+			FunctionForCommands<AdditionalSpawnsZoneData, AdditionalSpawnsZoneData.ListAccessor<T>> dataGetter
 	) throws CommandSyntaxException {
 		var zone = getZone(ctx);
 		var data = creatorFromArgs.orElse(null);
 		if (data != null) {
 			var spawnData = zone.getOrCreate(ZoneDataRegistry.SPAWN);
 			dataGetter.apply(spawnData).add(data);
-			spawnData.markDirty();
 			ctx.getSource().sendFeedback(() -> Text.literal("Added " + nameOfObject + " to " + zone.getName()), true);
 			return 1;
 		} else {
@@ -473,7 +472,7 @@ public class ZoneManagementCommand {
 	private static <T> int removeSpawnRule(
 			CommandContext<ServerCommandSource> ctx,
 			String nameOfObject, Function<T, String> printer,
-			FunctionForCommands<AdditionalSpawnsZoneData, List<T>> dataGetter
+			FunctionForCommands<AdditionalSpawnsZoneData, AdditionalSpawnsZoneData.ListAccessor<T>> dataGetter
 	) throws CommandSyntaxException {
 		int index = IntegerArgumentType.getInteger(ctx, "index");
 		var zone = getZone(ctx);
@@ -485,7 +484,6 @@ public class ZoneManagementCommand {
 				return 0;
 			}
 			var entry = list.remove(index);
-			data.markDirty();
 			ctx.getSource().sendFeedback(() -> Text.literal("Removed " + nameOfObject + " " + printer.apply(entry) + " successfully from " + zone.getName()), true);
 		} else {
 			ctx.getSource().sendFeedback(() -> Text.literal("No data"), false);
@@ -497,16 +495,16 @@ public class ZoneManagementCommand {
 	private static <T> int listSpawnRules(
 			CommandContext<ServerCommandSource> ctx,
 			String nameOfObject, Function<T, String> printer,
-			FunctionForCommands<AdditionalSpawnsZoneData, List<T>> dataGetter
+			FunctionForCommands<AdditionalSpawnsZoneData, AdditionalSpawnsZoneData.ListAccessor<T>> dataGetter
 	) throws CommandSyntaxException {
 		var zone = getZone(ctx);
 		var data = zone.get(ZoneDataRegistry.SPAWN).orElse(null);
 		if (data != null) {
 			var objects = dataGetter.apply(data);
 			MutableInt i = new MutableInt(0);
-			for (var o : objects) {
+			objects.forEach(o -> {
 				ctx.getSource().sendFeedback(() -> Text.literal(i.getAndIncrement() + ": " + printer.apply(o)), false);
-			}
+			});
 			if (objects.isEmpty()) {
 				ctx.getSource().sendFeedback(() -> Text.literal("No " + nameOfObject + "s defined"), false);
 			}

@@ -92,16 +92,6 @@ public class ZoneMap {
 		worldZoneLock.readLock().unlock();
 	}
 
-	public void forZones(RegistryKey<World> dim, Predicate<Zone> shouldContinue) {
-		worldZoneLock.readLock().lock();
-		for (var zone : worldZones.get(dim)) {
-			if (!shouldContinue.test(zone)) {
-				break;
-			}
-		}
-		worldZoneLock.readLock().unlock();
-	}
-
 	public List<Zone> getZones(RegistryKey<World> dim, Predicate<Zone> zonePredicate) {
 		return LockHelper.getThroughLock(
 				worldZoneLock.readLock(),

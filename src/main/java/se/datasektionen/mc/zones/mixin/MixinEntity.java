@@ -45,9 +45,7 @@ public abstract class MixinEntity {
 				if (!currentZones.contains(zone) && zone.contains(this.getBlockPos())) {
 					currentZones.add(zone);
 					zone.addToZone((Entity) (Object) this);
-					return false;
 				}
-				return true;
 			});
 			currentZones.removeAll(removeZones);
 		}

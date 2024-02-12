@@ -76,7 +76,7 @@ public abstract class MixinSpawnHelper {
 				if (!data.getSpawnRemovers().isEmpty()) {
 					hasRemovers.setTrue();
 				}
-				return !data.getSpawns().isEmpty() || !data.getSpawnRemovers().isEmpty();
+				return data.hasSpawns() || !data.getSpawnRemovers().isEmpty();
 			}).orElse(false);
 		});
 		if (!zones.isEmpty()) {
@@ -87,9 +87,9 @@ public abstract class MixinSpawnHelper {
 				);
 				for (var zone : zones) {
 					zone.get(ZoneDataRegistry.SPAWN).ifPresent(spawnData -> {
-						for (var blocker : spawnData.getSpawnRemovers()) {
+						spawnData.getSpawnRemovers().forEach(blocker -> {
 							blocker.removeEntities(spawnGroup, spawnsMap);
-						}
+						});
 					});
 				}
 				spawns = new ArrayList<>(spawnsMap.values());
@@ -99,7 +99,7 @@ public abstract class MixinSpawnHelper {
 			for (var zone : zones) {
 				var spawnData = zone.get(ZoneDataRegistry.SPAWN).orElse(null);
 				if (spawnData != null) {
-					spawns.addAll(spawnData.getSpawns().get(spawnGroup));
+					spawnData.getSpawns(spawnGroup).addAllTo(spawns);
 				}
 			}
 			return Pool.of(spawns);
@@ -192,10 +192,11 @@ public abstract class MixinSpawnHelper {
 		for (var zone : zones) {
 			if (zone.get(ZoneDataRegistry.SPAWN).isPresent()) {
 				var data = zone.get(ZoneDataRegistry.SPAWN).get();
-				for (var rule : data.getSpawnRules()) {
-					if (rule.type().matches(type)) {
-						return rule.rule().canSpawn(type, world, spawnReason, pos, random);
-					}
+				var rule = data.getSpawnRules().find(
+						checkRule -> checkRule.type().matches(type)
+				);
+				if (rule.isPresent()) {
+					return rule.get().rule().canSpawn(type, world, spawnReason, pos, random);
 				}
 			}
 		}
