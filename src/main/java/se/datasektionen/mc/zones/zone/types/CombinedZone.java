@@ -78,6 +78,7 @@ public abstract class CombinedZone extends ZoneType {
 	public void addZone(ZoneType zone) {
 		lock.writeLock().lock();
 		zones.add(zone);
+		zone.setZoneRef(getZoneRef());
 		size = updateSize(zone, UpdateDirection.ADD);
 		lock.writeLock().unlock();
 	}

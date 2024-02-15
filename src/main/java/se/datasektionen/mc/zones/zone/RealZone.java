@@ -99,7 +99,9 @@ public class RealZone extends Zone {
 
 	@Override
 	public void markDirty() {
-		this.markNeedsSave.run();
+		if (this.markNeedsSave != null) {
+			this.markNeedsSave.run();
+		}
 	}
 
 	@Override
