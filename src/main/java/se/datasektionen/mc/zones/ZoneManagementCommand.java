@@ -13,6 +13,7 @@ import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.mojang.brigadier.tree.CommandNode;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.command.CommandSource;
 import net.minecraft.command.argument.DimensionArgumentType;
@@ -27,8 +28,11 @@ import net.minecraft.registry.Registries;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.text.ClickEvent;
 import net.minecraft.text.MutableText;
+import net.minecraft.text.Style;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.StringIdentifiable;
 import net.minecraft.world.World;
 import org.apache.commons.lang3.mutable.MutableInt;
@@ -46,6 +50,7 @@ import se.datasektionen.mc.zones.zone.data.ZoneDataRegistry;
 import se.datasektionen.mc.zones.zone.types.*;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -54,6 +59,8 @@ import static net.minecraft.server.command.CommandManager.argument;
 import static net.minecraft.server.command.CommandManager.literal;
 
 public class ZoneManagementCommand {
+
+	private static final Map<String, ZoneEntry> zonesToRemove = new ConcurrentHashMap<>();
 
 	public static final String NAME = "name";
 
@@ -71,7 +78,15 @@ public class ZoneManagementCommand {
 
 	private static final DynamicCommandExceptionType ENTITY_FAIL = new DynamicCommandExceptionType(id -> Text.literal(id + " is not a valid entity or entity tag!"));
 
+	public static void init() {
+		ServerTickEvents.END_SERVER_TICK.register(server -> {
+			zonesToRemove.values().removeIf(
+					entry -> entry.timeLeft().decrementAndGet() <= 0
+			);
+		});
+	}
 
+	private record ZoneEntry(String name, MutableInt timeLeft) {}
 
 	static void registerCommand(
 			LiteralArgumentBuilder<ServerCommandSource> builder, CommandRegistryAccess registryAccess,
@@ -246,19 +261,74 @@ public class ZoneManagementCommand {
 			literal("remove").then(
 				zone().executes(ctx -> {
 					String name = StringArgumentType.getString(ctx, NAME);
-					if (getSettings(ctx).removeZone(name)) {
+					var settings = getSettings(ctx);
+					if (settings.containsZone(name)) {
+						zonesToRemove.put(ctx.getSource().getName(), new ZoneEntry(name, new MutableInt(60*20)));
 						ctx.getSource().sendFeedback(
-							() -> Text.literal("Removed " + name),
-							true
+								() -> Text.literal("Are you sure you want to remove " + name + "?"),
+								false
+						);
+						ctx.getSource().sendFeedback(
+								() -> Text.literal("If yes, please type ").append(
+										Text.literal("/zone confirm-remove " + name).fillStyle(
+												Style.EMPTY.withColor(Formatting.RED).withClickEvent(new ClickEvent(
+														ClickEvent.Action.SUGGEST_COMMAND,
+														"/zone confirm-remove " + name
+												))
+										)
+								),
+								false
 						);
 						return 1;
 					} else {
 						ctx.getSource().sendFeedback(
-							() -> Text.literal("No zone with " + name + " exists!"),
-							false
+								() -> Text.literal("No zone with " + name + " exists!"),
+								false
 						);
 						return 0;
 					}
+				})
+			)
+		).then(
+			literal("confirm-remove").then(
+				argument(NAME, StringArgumentType.string()).executes(ctx -> {
+					String name = StringArgumentType.getString(ctx, NAME);
+					var toRemove = zonesToRemove.get(ctx.getSource().getName());
+					if (toRemove == null) {
+						ctx.getSource().sendError(
+							Text.literal("Please type ").append(
+								Text.literal("/zone remove " + name).fillStyle(
+									Style.EMPTY.withColor(Formatting.YELLOW)
+											.withClickEvent(new ClickEvent(
+												ClickEvent.Action.SUGGEST_COMMAND,
+												"/zone remove " + name
+											))
+								)
+							)
+						);
+						return 0;
+					}
+
+					if (toRemove.name.equals(name)) {
+						if (getSettings(ctx).removeZone(name)) {
+							ctx.getSource().sendFeedback(
+									() -> Text.literal("Removed " + name),
+									true
+							);
+							return 1;
+						} else {
+							ctx.getSource().sendFeedback(
+									() -> Text.literal("No zone with " + name + " exists!"),
+									false
+							);
+							return 0;
+						}
+					} else {
+						ctx.getSource().sendError(
+							Text.literal("Are you sure you're trying to remove the right zone? Because you specified another zone in the remove command...")
+						);
+					}
+					return 0;
 				})
 			)
 		).then(

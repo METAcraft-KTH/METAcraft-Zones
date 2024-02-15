@@ -19,6 +19,7 @@ public class METAcraftZones implements ModInitializer {
 	public void onInitialize() {
 		ZoneRegistry.init();
 		ZoneDataRegistry.init();
+		ZoneManagementCommand.init();
 		Commands.registerCommands();
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
 			ZoneManager.getInstance(server).getZones().getZones().forEach(RealZone::onWorldLoad);
