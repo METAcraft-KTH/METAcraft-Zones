@@ -10,7 +10,7 @@ import net.minecraft.registry.Registries;
 import net.minecraft.registry.tag.TagKey;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.random.Random;
-import net.minecraft.world.WorldAccess;
+import net.minecraft.world.ServerWorldAccess;
 import se.datasektionen.mc.zones.spawns.SpawnRuleRegistry;
 
 public class IsBlockBellowRule implements SpawnRule {
@@ -34,7 +34,7 @@ public class IsBlockBellowRule implements SpawnRule {
 	}
 
 	@Override
-	public boolean canSpawn(EntityType<?> entityType, WorldAccess world, SpawnReason reason, BlockPos pos, Random random) {
+	public boolean canSpawn(EntityType<?> entityType, ServerWorldAccess world, SpawnReason reason, BlockPos pos, Random random) {
 		return blockBelow.map(block -> world.getBlockState(pos.down()).isOf(block), tag -> world.getBlockState(pos.down()).isIn(tag));
 	}
 }

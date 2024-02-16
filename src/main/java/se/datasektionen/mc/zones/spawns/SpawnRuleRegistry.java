@@ -20,6 +20,8 @@ public class SpawnRuleRegistry {
 	public static final SpawnRuleType<IsBlockBellowRule> BLOCK_BELOW = register("block_below", IsBlockBellowRule.CODEC);
 	public static final SpawnRuleType<BlockBelowCanSpawn> BLOCK_BELOW_CAN_SPAWN = register("block_below_can_spawn", BlockBelowCanSpawn.CODEC);
 	public static final SpawnRuleType<RNGRule> RANDOM = register("random", RNGRule.CODEC);
+	public static final SpawnRuleType<Default> DEFAULT = register("default", Default.CODEC);
+	public static final SpawnRuleType<Weather> WEATHER = register("weather", Weather.CODEC);
 
 
 

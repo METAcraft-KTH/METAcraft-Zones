@@ -10,6 +10,7 @@ import net.minecraft.predicate.NumberRange;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.LightType;
+import net.minecraft.world.ServerWorldAccess;
 import net.minecraft.world.WorldAccess;
 import se.datasektionen.mc.zones.spawns.SpawnRuleRegistry;
 
@@ -48,7 +49,7 @@ public class LightLevelSpawnRule implements SpawnRule {
 	}
 
 	@Override
-	public boolean canSpawn(EntityType<?> entityType, WorldAccess world, SpawnReason reason, BlockPos pos, Random random) {
+	public boolean canSpawn(EntityType<?> entityType, ServerWorldAccess world, SpawnReason reason, BlockPos pos, Random random) {
 		if (requireAll) {
 			for (var level : lightLevel.entrySet()) {
 				if (!level.getValue().test(level.getKey().getLight(world, pos))) {
