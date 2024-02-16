@@ -131,17 +131,25 @@ public class AdditionalSpawnsZoneData extends ZoneData {
 
 		public void add(T element) {
 			lock.writeLock().lock();
-			list.add(element);
-			lock.writeLock().unlock();
+			try {
+				list.add(element);
+			} finally {
+				lock.writeLock().unlock();
+			}
 			save.run();
 		}
 
 		public T remove(int index) {
 			lock.writeLock().lock();
-			var entry = list.remove(index);
-			lock.writeLock().unlock();
+			T removed;
+			try {
+				removed = list.remove(index);
+			} finally {
+				lock.writeLock().unlock();
+			}
+
 			save.run();
-			return entry;
+			return removed;
 		}
 
 		public int size() {
@@ -154,25 +162,34 @@ public class AdditionalSpawnsZoneData extends ZoneData {
 
 		public void forEach(Consumer<T> action) {
 			lock.readLock().lock();
-			list.forEach(action);
-			lock.readLock().unlock();
+			try {
+				list.forEach(action);
+			} finally {
+				lock.readLock().unlock();
+			}
 		}
 
 		public Optional<T> find(Predicate<T> action) {
 			lock.readLock().lock();
-			for (var element : list) {
-				if (action.test(element)) {
-					return Optional.of(element);
+			try {
+				for (var element : list) {
+					if (action.test(element)) {
+						return Optional.of(element);
+					}
 				}
+			} finally {
+				lock.readLock().unlock();
 			}
-			lock.readLock().unlock();
 			return Optional.empty();
 		}
 
 		public void addAllTo(Collection<? super T> other) {
 			lock.readLock().lock();
-			other.addAll(list);
-			lock.readLock().unlock();
+			try {
+				other.addAll(list);
+			} finally {
+				lock.readLock().unlock();
+			}
 		}
 
 	}

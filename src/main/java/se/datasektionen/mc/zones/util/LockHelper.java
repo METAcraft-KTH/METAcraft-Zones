@@ -7,9 +7,13 @@ public class LockHelper {
 
 	public static <T> T getThroughLock(Lock lock, Supplier<T> modify) {
 		lock.lock();
-		var result = modify.get();
-		lock.unlock();
-		return result;
+		T element;
+		try {
+			element = modify.get();
+		} finally {
+			lock.unlock();
+		}
+		return element;
 	}
 
 }

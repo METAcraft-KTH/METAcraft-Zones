@@ -48,16 +48,19 @@ public class ZoneMap {
 
 	private void addZoneInternal(Zone zone) {
 		worldZoneLock.writeLock().lock();
-		if (zone.isRealZone()) {
-			zones.put(zone.getName(), zone.getRealZone());
-		}
-		worldZones.put(zone.getDim(), zone);
-		if (zone.isRealZone()) {
-			for (Zone remoteZone : zone.getRealZone().getRemoteZones()) {
-				worldZones.put(remoteZone.getDim(), remoteZone);
+		try {
+			if (zone.isRealZone()) {
+				zones.put(zone.getName(), zone.getRealZone());
 			}
+			worldZones.put(zone.getDim(), zone);
+			if (zone.isRealZone()) {
+				for (Zone remoteZone : zone.getRealZone().getRemoteZones()) {
+					worldZones.put(remoteZone.getDim(), remoteZone);
+				}
+			}
+		} finally {
+			worldZoneLock.writeLock().unlock();
 		}
-		worldZoneLock.writeLock().unlock();
 	}
 
 	public boolean removeZone(String name) {
@@ -68,18 +71,21 @@ public class ZoneMap {
 
 	public void removeZone(Zone zone) {
 		worldZoneLock.writeLock().lock();
-		if (zone.isRealZone()) {
-			zones.remove(zone.getName());
-			onRemove.accept(zone);
-			markNeedsSave.run();
-		}
-		worldZones.remove(zone.getDim(), zone);
-		if (zone.isRealZone()) {
-			for (Zone remoteZone : zone.getRealZone().getRemoteZones()) {
-				worldZones.remove(remoteZone.getDim(), remoteZone);
+		try {
+			if (zone.isRealZone()) {
+				zones.remove(zone.getName());
+				onRemove.accept(zone);
+				markNeedsSave.run();
 			}
+			worldZones.remove(zone.getDim(), zone);
+			if (zone.isRealZone()) {
+				for (Zone remoteZone : zone.getRealZone().getRemoteZones()) {
+					worldZones.remove(remoteZone.getDim(), remoteZone);
+				}
+			}
+		} finally {
+			worldZoneLock.writeLock().unlock();
 		}
-		worldZoneLock.writeLock().unlock();
 	}
 
 	public RealZone getZone(String name) {
@@ -88,8 +94,11 @@ public class ZoneMap {
 
 	public void forZones(RegistryKey<World> dim, Consumer<Zone> run) {
 		worldZoneLock.readLock().lock();
-		worldZones.get(dim).forEach(run);
-		worldZoneLock.readLock().unlock();
+		try {
+			worldZones.get(dim).forEach(run);
+		} finally {
+			worldZoneLock.readLock().unlock();
+		}
 	}
 
 	public List<Zone> getZones(RegistryKey<World> dim, Predicate<Zone> zonePredicate) {

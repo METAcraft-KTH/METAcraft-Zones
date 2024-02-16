@@ -77,24 +77,34 @@ public abstract class CombinedZone extends ZoneType {
 
 	public void addZone(ZoneType zone) {
 		lock.writeLock().lock();
-		zones.add(zone);
-		zone.setZoneRef(getZoneRef());
-		size = updateSize(zone, UpdateDirection.ADD);
-		lock.writeLock().unlock();
+		try {
+			zones.add(zone);
+			zone.setZoneRef(getZoneRef());
+			size = updateSize(zone, UpdateDirection.ADD);
+		} finally {
+			lock.writeLock().unlock();
+		}
 	}
 
 	public ZoneType removeZone(int index) {
 		lock.writeLock().lock();
-		var removed = zones.remove(index);
-		size = updateSize(removed, UpdateDirection.REMOVE);
-		lock.writeLock().unlock();
-		return removed;
+		ZoneType element;
+		try {
+			element = zones.remove(index);
+			size = updateSize(element, UpdateDirection.REMOVE);
+		} finally {
+			lock.writeLock().unlock();
+		}
+		return element;
 	}
 
 	public void forEach(Consumer<ZoneType> consumer) {
 		lock.readLock().lock();
-		zones.forEach(consumer);
-		lock.readLock().unlock();
+		try {
+			zones.forEach(consumer);
+		} finally {
+			lock.readLock().unlock();
+		}
 	}
 
 	public int zoneCount() {
@@ -110,11 +120,14 @@ public abstract class CombinedZone extends ZoneType {
 		super.setZoneRef(zone);
 		if (zone != null) {
 			lock.readLock().lock();
-			for (ZoneType type : zones) {
-				type.setZoneRef(zone);
+			try {
+				for (ZoneType type : zones) {
+					type.setZoneRef(zone);
+				}
+				size = getSize(zones);
+			} finally {
+				lock.readLock().unlock();
 			}
-			size = getSize(zones);
-			lock.readLock().unlock();
 		}
 	}
 
