@@ -22,6 +22,7 @@ public class SpawnRuleRegistry {
 	public static final SpawnRuleType<RNGRule> RANDOM = register("random", RNGRule.CODEC);
 	public static final SpawnRuleType<Default> DEFAULT = register("default", Default.CODEC);
 	public static final SpawnRuleType<Weather> WEATHER = register("weather", Weather.CODEC);
+	public static final SpawnRuleType<HasSkyAccess> HAS_SKY_ACCESS = register("has_sky_access", HasSkyAccess.CODEC);
 
 
 
