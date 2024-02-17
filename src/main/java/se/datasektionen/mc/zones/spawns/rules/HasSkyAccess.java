@@ -31,6 +31,6 @@ public class HasSkyAccess implements SpawnRule {
 
 	@Override
 	public boolean canSpawn(EntityType<?> entityType, ServerWorldAccess world, SpawnReason reason, BlockPos pos, Random random) {
-		return world.getTopY(heightmap, pos.getX(), pos.getZ()) == pos.getY();
+		return world.getTopY(heightmap, pos.getX(), pos.getZ()) <= pos.getY();
 	}
 }
