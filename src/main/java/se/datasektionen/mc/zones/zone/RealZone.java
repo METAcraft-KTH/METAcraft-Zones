@@ -77,6 +77,11 @@ public class RealZone extends Zone {
 		});
 	}
 
+	public void removeZoneData(ZoneDataType<?> data) {
+		zoneData.remove(data);
+		markNeedsSave.run();
+	}
+
 	@Override
 	protected Collection<ZoneData> getZoneDatas() {
 		return zoneData.values();

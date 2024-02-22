@@ -20,6 +20,10 @@ public abstract class ZoneData {
 		zone.markDirty();
 	}
 
+	public Zone getZone() {
+		return zone;
+	}
+
 	public abstract ZoneDataType<? extends ZoneData> getType();
 
 	public Text toText() {
