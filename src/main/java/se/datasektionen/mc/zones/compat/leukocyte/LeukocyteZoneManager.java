@@ -16,8 +16,12 @@ public class LeukocyteZoneManager {
 
 	private static final String SEPARATOR = "-+-";
 
-	private static String getAuthorityName(Zone zone) {
+	public static String getAuthorityName(Zone zone) {
 		return zone.getName() + SEPARATOR + METAcraftZones.MODID;
+	}
+
+	public static Authority getAuthorityFromZone(Zone zone) {
+		return Leukocyte.get(zone.getWorld().getServer()).getAuthorityByKey(getAuthorityName(zone));
 	}
 
 	public static boolean isMETAcraftZoneName(String name) {
