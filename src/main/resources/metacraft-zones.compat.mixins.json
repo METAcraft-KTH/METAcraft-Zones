@@ -5,7 +5,8 @@
 	"plugin": "se.datasektionen.mc.zones.compat.MixinPlugin",
 	"mixins": [
 		"AccessorIndexedAuthorityMap",
-		"MixinProtectCommand"
+		"MixinProtectCommand",
+		"MixinProtectionExclusions"
 	],
 	"injectors": {
 		"defaultRequire": 1

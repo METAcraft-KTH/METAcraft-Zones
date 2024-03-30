@@ -8,9 +8,11 @@ import se.datasektionen.mc.zones.compat.mixin.AccessorIndexedAuthorityMap;
 import se.datasektionen.mc.zones.zone.Zone;
 import xyz.nucleoid.leukocyte.Leukocyte;
 import xyz.nucleoid.leukocyte.authority.Authority;
+import xyz.nucleoid.leukocyte.rule.ProtectionExclusions;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class LeukocyteZoneManager {
 
@@ -37,6 +39,7 @@ public class LeukocyteZoneManager {
 		Leukocyte.get(server).addAuthority(Authority.create(name).addShape(
 				name, new ZoneShape(zone.getName())
 		));
+		fixProtectionExclusions(zone, Leukocyte.get(server).getAuthorityByKey(name));
 	}
 
 	public static void onZoneRemove(MinecraftServer server, Zone zone) {
@@ -52,6 +55,14 @@ public class LeukocyteZoneManager {
 		}
 	}
 
+	public static Optional<Zone> getZoneFromExclusions(ProtectionExclusions exclusions) {
+		return ((ExclusionData) (Object) exclusions).metacraft_zones$getZone();
+	}
+
+	private static void fixProtectionExclusions(Zone zone, Authority authority) {
+		((ExclusionData) (Object) authority.getExclusions()).metacraft_zones$setZone(zone);
+	}
+
 	public static void init() {
 		ZoneShape.REGISTRY.register(METAcraftZones.MODID, ZoneShape.CODEC);
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
@@ -61,8 +72,13 @@ public class LeukocyteZoneManager {
 
 			List<String> authoritiesToRemove = new ArrayList<>();
 			leukocyte.getAuthorities().forEach(authority -> {
-				if (isMETAcraftZoneName(authority.getKey()) && !zones.containsZone(getZoneNameFromAuthorityName(authority.getKey()))) {
-					authoritiesToRemove.add(authority.getKey());
+				if (isMETAcraftZoneName(authority.getKey())) {
+					var name = getZoneNameFromAuthorityName(authority.getKey());
+					if (zones.containsZone(name)) {
+						fixProtectionExclusions(zones.getZone(name), authority);
+					} else {
+						authoritiesToRemove.add(authority.getKey());
+					}
 				}
 			});
 			for (String authority : authoritiesToRemove) {
