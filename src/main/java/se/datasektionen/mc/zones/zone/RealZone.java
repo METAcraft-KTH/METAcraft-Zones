@@ -6,7 +6,7 @@ import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryOps;
+import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
@@ -138,7 +138,7 @@ public class RealZone extends Zone {
 		).ifPresent(dim -> {
 			nbt.put(DIM, dim);
 		});
-		ZoneType.REGISTRY_CODEC.encodeStart(RegistryOps.of(NbtOps.INSTANCE, world.getRegistryManager()), zone).resultOrPartial(
+		ZoneType.REGISTRY_CODEC.encodeStart(world.getRegistryManager().getOps(NbtOps.INSTANCE), zone).resultOrPartial(
 				METAcraftZones.LOGGER::error
 		).ifPresent(zone -> {
 			nbt.put(ZONE, zone);
@@ -155,7 +155,7 @@ public class RealZone extends Zone {
 		NbtList data = new NbtList();
 		zoneData.values().forEach(dataValue -> {
 			ZoneData.REGISTRY_CODEC.encodeStart(
-					RegistryOps.of(NbtOps.INSTANCE, world.getRegistryManager()), dataValue
+					world.getRegistryManager().getOps(NbtOps.INSTANCE), dataValue
 			).resultOrPartial(METAcraftZones.LOGGER::error).ifPresent(data::add);
 		});
 		nbt.put(DATA, data);
@@ -164,7 +164,9 @@ public class RealZone extends Zone {
 		return nbt;
 	}
 
-	public static Optional<RealZone> fromNBT(MinecraftServer server, NbtCompound nbt, Runnable markNeedsSave) {
+	public static Optional<RealZone> fromNBT(
+			MinecraftServer server, RegistryWrapper.WrapperLookup lookup, NbtCompound nbt, Runnable markNeedsSave
+	) {
 		return World.CODEC.parse(NbtOps.INSTANCE, nbt.get(DIM)).resultOrPartial(
 				METAcraftZones.LOGGER::error
 		).flatMap(dim -> {
@@ -174,7 +176,7 @@ public class RealZone extends Zone {
 				METAcraftZones.LOGGER.error("Root dimension invalid, deleting zone " + name);
 				return Optional.empty();
 			}
-			var zone = ZoneType.REGISTRY_CODEC.parse(RegistryOps.of(NbtOps.INSTANCE, world.getRegistryManager()), nbt.get(ZONE)).resultOrPartial(
+			var zone = ZoneType.REGISTRY_CODEC.parse(lookup.getOps(NbtOps.INSTANCE), nbt.get(ZONE)).resultOrPartial(
 					METAcraftZones.LOGGER::error
 			).orElseGet(() -> {
 				METAcraftZones.LOGGER.error(
@@ -187,7 +189,7 @@ public class RealZone extends Zone {
 			NbtList data = nbt.getList(DATA, NbtElement.COMPOUND_TYPE);
 			for (NbtElement element : data) {
 				ZoneData.REGISTRY_CODEC.parse(
-						RegistryOps.of(NbtOps.INSTANCE, world.getRegistryManager()), element
+						lookup.getOps(NbtOps.INSTANCE), element
 				).resultOrPartial(METAcraftZones.LOGGER::error).ifPresent(dataValue -> {
 					dataTypes.put(dataValue.getType(), dataValue);
 				});

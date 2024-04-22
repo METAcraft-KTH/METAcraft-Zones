@@ -2,6 +2,7 @@ package se.datasektionen.mc.zones.spawns;
 
 import com.google.common.collect.Multimap;
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.fabricmc.fabric.api.event.registry.FabricRegistryBuilder;
 import net.minecraft.entity.EntityType;
@@ -14,7 +15,7 @@ import se.datasektionen.mc.zones.METAcraftZones;
 
 public class SpawnRemoverRegistry {
 
-	public static final Registry<Codec<? extends SpawnRemover>> REGISTRY = FabricRegistryBuilder.<Codec<? extends SpawnRemover>>createSimple(
+	public static final Registry<MapCodec<? extends SpawnRemover>> REGISTRY = FabricRegistryBuilder.<MapCodec<? extends SpawnRemover>>createSimple(
 			RegistryKey.ofRegistry(METAcraftZones.getID("spawn_remover"))
 	).buildAndRegister();
 
@@ -30,13 +31,13 @@ public class SpawnRemoverRegistry {
 		);
 		void removeEntities(SpawnGroup spawnGroup, Multimap<EntityType<?>, SpawnSettings.SpawnEntry> spawnsMap);
 
-		Codec<? extends SpawnRemover> getCodec();
+		MapCodec<? extends SpawnRemover> getCodec();
 	}
 
 	public static class AllSpawnRemover implements SpawnRemover {
 
 		public static final AllSpawnRemover INSTANCE = new AllSpawnRemover();
-		public static final Codec<AllSpawnRemover> CODEC = Codec.unit(INSTANCE);
+		public static final MapCodec<AllSpawnRemover> CODEC = MapCodec.unit(INSTANCE);
 
 		private AllSpawnRemover() {}
 
@@ -46,14 +47,14 @@ public class SpawnRemoverRegistry {
 		}
 
 		@Override
-		public Codec<? extends SpawnRemover> getCodec() {
+		public MapCodec<? extends SpawnRemover> getCodec() {
 			return CODEC;
 		}
 	}
 
 	public record TypesSpawnRemover(EntityTypePredicate entityType) implements SpawnRemover {
 
-		public static final Codec<TypesSpawnRemover> CODEC = RecordCodecBuilder.create(
+		public static final MapCodec<TypesSpawnRemover> CODEC = RecordCodecBuilder.mapCodec(
 				instance -> instance.group(
 						EntityTypePredicate.CODEC.fieldOf("entity").forGetter(TypesSpawnRemover::entityType)
 				).apply(instance, TypesSpawnRemover::new)
@@ -67,14 +68,14 @@ public class SpawnRemoverRegistry {
 		}
 
 		@Override
-		public Codec<? extends SpawnRemover> getCodec() {
+		public MapCodec<? extends SpawnRemover> getCodec() {
 			return CODEC;
 		}
 	}
 
 	public record SpawnGroupSpawnRemover(SpawnGroup spawnGroup) implements SpawnRemover {
 
-		public static final Codec<SpawnGroupSpawnRemover> CODEC = RecordCodecBuilder.create(
+		public static final MapCodec<SpawnGroupSpawnRemover> CODEC = RecordCodecBuilder.mapCodec(
 				instance -> instance.group(
 						SpawnGroup.CODEC.fieldOf("spawnGroup").forGetter(SpawnGroupSpawnRemover::spawnGroup)
 				).apply(instance, SpawnGroupSpawnRemover::new)
@@ -88,7 +89,7 @@ public class SpawnRemoverRegistry {
 		}
 
 		@Override
-		public Codec<? extends SpawnRemover> getCodec() {
+		public MapCodec<? extends SpawnRemover> getCodec() {
 			return CODEC;
 		}
 	}

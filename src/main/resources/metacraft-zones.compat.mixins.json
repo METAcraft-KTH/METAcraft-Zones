@@ -1,7 +1,7 @@
 {
 	"required": true,
 	"package": "se.datasektionen.mc.zones.compat.mixin",
-	"compatibilityLevel": "JAVA_17",
+	"compatibilityLevel": "JAVA_21",
 	"plugin": "se.datasektionen.mc.zones.compat.MixinPlugin",
 	"mixins": [
 		"AccessorIndexedAuthorityMap",

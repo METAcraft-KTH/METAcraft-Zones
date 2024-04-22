@@ -7,6 +7,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.command.argument.RegistryPredicateArgumentType;
 import net.minecraft.registry.RegistryKeys;
@@ -34,7 +35,7 @@ public class BiomeZone extends ZoneType {
 	protected Either<RegistryEntry<Biome>, TagKey<Biome>> biome;
 	protected boolean alwaysCheckSourceDim;
 
-	public static final Codec<BiomeZone> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+	public static final MapCodec<BiomeZone> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
 			BIOME_CODEC.fieldOf("biome").forGetter(zone -> zone.biome),
 			Codec.BOOL.fieldOf("alwaysCheckSourceDim").orElse(false).forGetter(zone -> zone.alwaysCheckSourceDim)
 	).apply(instance, BiomeZone::new));

@@ -1,7 +1,7 @@
 package se.datasektionen.mc.zones.zone.types;
 
 import com.mojang.brigadier.builder.ArgumentBuilder;
-import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.command.argument.BlockPosArgumentType;
 import net.minecraft.server.command.ServerCommandSource;
@@ -14,7 +14,7 @@ import static net.minecraft.server.command.CommandManager.argument;
 
 public class BoxZone extends ZoneType {
 
-	public static final Codec<BoxZone> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+	public static final MapCodec<BoxZone> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
 			BlockBox.CODEC.fieldOf("box").forGetter(zone -> zone.box)
 	).apply(instance, BoxZone::new));
 

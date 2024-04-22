@@ -1,6 +1,7 @@
 package se.datasektionen.mc.zones.spawns.rules;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnReason;
@@ -13,7 +14,7 @@ public class RNGRule implements SpawnRule {
 
 	public double probability;
 
-	public static final Codec<RNGRule> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+	public static final MapCodec<RNGRule> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
 			Codec.DOUBLE.fieldOf("probability").forGetter(rule -> rule.probability)
 	).apply(instance, RNGRule::new));
 

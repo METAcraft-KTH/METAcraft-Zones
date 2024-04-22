@@ -34,9 +34,13 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import se.datasektionen.mc.zones.ZoneManager;
 import se.datasektionen.mc.zones.spawns.BetterSpawnEntry;
+import se.datasektionen.mc.zones.zone.Zone;
+import se.datasektionen.mc.zones.zone.data.AdditionalSpawnsZoneData;
 import se.datasektionen.mc.zones.zone.data.ZoneDataRegistry;
 
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 @Mixin(SpawnHelper.class)
 public abstract class MixinSpawnHelper {
@@ -149,7 +153,7 @@ public abstract class MixinSpawnHelper {
 	@WrapOperation(
 		at = @At(
 			value = "INVOKE",
-			target = "Lnet/minecraft/entity/mob/MobEntity;initialize(Lnet/minecraft/world/ServerWorldAccess;Lnet/minecraft/world/LocalDifficulty;Lnet/minecraft/entity/SpawnReason;Lnet/minecraft/entity/EntityData;Lnet/minecraft/nbt/NbtCompound;)Lnet/minecraft/entity/EntityData;"
+			target = "Lnet/minecraft/entity/mob/MobEntity;initialize(Lnet/minecraft/world/ServerWorldAccess;Lnet/minecraft/world/LocalDifficulty;Lnet/minecraft/entity/SpawnReason;Lnet/minecraft/entity/EntityData;)Lnet/minecraft/entity/EntityData;"
 		),
 		method = {
 				"spawnEntitiesInChunk(Lnet/minecraft/entity/SpawnGroup;Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/world/chunk/Chunk;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/world/SpawnHelper$Checker;Lnet/minecraft/world/SpawnHelper$Runner;)V",
@@ -157,21 +161,20 @@ public abstract class MixinSpawnHelper {
 		}
 	)
 	private static EntityData onSpawnEntities(
-			MobEntity mob, ServerWorldAccess world, LocalDifficulty difficulty,
-			SpawnReason spawnReason, EntityData entityData, NbtCompound entityNbt, Operation<EntityData> initialise,
-			@Local SpawnSettings.SpawnEntry spawnEntry
+			MobEntity mob, ServerWorldAccess world, LocalDifficulty difficulty, SpawnReason spawnReason,
+			EntityData entityData, Operation<EntityData> initialise, @Local SpawnSettings.SpawnEntry spawnEntry
 	) {
 		if (spawnEntry instanceof BetterSpawnEntry betterSpawnEntry) {
 			EntityData data = null;
 			if (betterSpawnEntry.shouldInitialise) {
-				data = initialise.call(mob, world, difficulty, spawnReason, entityData, entityNbt);
+				data = initialise.call(mob, world, difficulty, spawnReason, entityData);
 				var nbt = mob.writeNbt(new NbtCompound()); //Apply nbt again after initialisation since initialisation might remove stuff.
 				nbt.copyFrom(betterSpawnEntry.nbt);
 				mob.readNbt(nbt);
 			}
 			return data;
 		}
-		return initialise.call(mob, world, difficulty, spawnReason, entityData, entityNbt);
+		return initialise.call(mob, world, difficulty, spawnReason, entityData);
 	}
 
 	@WrapOperation(

@@ -1,6 +1,7 @@
 package se.datasektionen.mc.zones.zone.data;
 
 import com.mojang.serialization.Codec;
+import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.text.Text;
 import se.datasektionen.mc.zones.zone.Zone;
 
@@ -26,8 +27,12 @@ public abstract class ZoneData {
 
 	public abstract ZoneDataType<? extends ZoneData> getType();
 
-	public Text toText() {
+	protected Text toText() {
 		return Text.literal(this.toString());
+	}
+
+	public Text toText(RegistryWrapper.WrapperLookup lookup) {
+		return toText();
 	}
 
 }

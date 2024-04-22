@@ -1,6 +1,6 @@
 package se.datasektionen.mc.zones.spawns.rules;
 
-import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnReason;
 import net.minecraft.entity.SpawnRestriction;
@@ -13,7 +13,7 @@ public class Default implements SpawnRule {
 
 	public static final Default INSTANCE = new Default();
 
-	public static final Codec<Default> CODEC = Codec.unit(INSTANCE);
+	public static final MapCodec<Default> CODEC = MapCodec.unit(INSTANCE);
 
 	@Override
 	public SpawnRuleRegistry.SpawnRuleType<? extends SpawnRule> getType() {

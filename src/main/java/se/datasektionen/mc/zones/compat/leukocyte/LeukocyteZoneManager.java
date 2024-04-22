@@ -51,7 +51,10 @@ public class LeukocyteZoneManager {
 		if (leukocyte.getAuthorities() instanceof AccessorIndexedAuthorityMap map) {
 			var name = getAuthorityName(zone);
 			map.callRemoveFromDimension(name);
-			map.callAddToDimension(leukocyte.getAuthorityByKey(name));
+			switch (leukocyte.getAuthorityByKey(name)) {
+				case null -> {}
+				case Authority auth -> map.callAddToDimension(auth);
+			}
 		}
 	}
 

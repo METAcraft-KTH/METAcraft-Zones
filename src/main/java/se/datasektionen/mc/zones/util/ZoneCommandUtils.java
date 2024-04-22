@@ -89,7 +89,7 @@ public class ZoneCommandUtils {
 		try {
 			var result = ZoneType.REGISTRY_CODEC.parse(RegistryOps.of(NbtOps.INSTANCE, ctx.getSource().getRegistryManager()), nbt);
 			return result.result().orElseThrow(() -> OTHER_ERROR.create(
-					result.error().map(DataResult.PartialResult::message).orElse("An unknown error occurred.")
+					result.error().map(DataResult.Error::message).orElse("An unknown error occurred.")
 			));
 		} catch (IllegalArgumentException e) {
 			throw OTHER_ERROR.create(e.getMessage());

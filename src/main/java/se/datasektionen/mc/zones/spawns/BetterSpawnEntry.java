@@ -40,6 +40,7 @@ public class BetterSpawnEntry extends SpawnSettings.SpawnEntry {
 		this.shouldInitialise = shouldInitialise;
 	}
 
+	@Override
 	public String toString() {
 		return CODEC.encodeStart(NbtOps.INSTANCE, this).resultOrPartial(METAcraftZones.LOGGER::error).map(NbtElement::asString).orElse("Error");
 	}

@@ -1,6 +1,7 @@
 package se.datasektionen.mc.zones.spawns.rules;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnReason;
@@ -17,7 +18,7 @@ public class Weather implements SpawnRule {
 
 	private final WeatherType weather;
 
-	public static final Codec<Weather> CODEC = RecordCodecBuilder.create(
+	public static final MapCodec<Weather> CODEC = RecordCodecBuilder.mapCodec(
 			instance -> instance.group(
 					WeatherType.CODEC.fieldOf("weather").forGetter(weather -> weather.weather)
 			).apply(instance, Weather::new)

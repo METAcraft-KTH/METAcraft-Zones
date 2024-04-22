@@ -1,6 +1,7 @@
 package se.datasektionen.mc.zones.compat.leukocyte;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.server.MinecraftServer;
@@ -15,7 +16,7 @@ import xyz.nucleoid.stimuli.filter.EventFilter;
 public class ZoneShape implements ProtectionShape {
 
 	protected String name;
-	public static Codec<ZoneShape> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+	public static MapCodec<ZoneShape> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
 			Codec.STRING.fieldOf("name").forGetter(zone -> zone.name)
 	).apply(instance, ZoneShape::new));
 
@@ -57,7 +58,7 @@ public class ZoneShape implements ProtectionShape {
 	}
 
 	@Override
-	public Codec<? extends ProtectionShape> getCodec() {
+	public MapCodec<? extends ProtectionShape> getCodec() {
 		return CODEC;
 	}
 

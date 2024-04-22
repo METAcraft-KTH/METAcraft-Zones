@@ -1,7 +1,7 @@
 package se.datasektionen.mc.zones.zone.types;
 
 import com.mojang.brigadier.builder.ArgumentBuilder;
-import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.command.argument.DimensionArgumentType;
 import net.minecraft.registry.RegistryKey;
@@ -14,7 +14,7 @@ import se.datasektionen.mc.zones.zone.ZoneRegistry;
 
 public class DimensionLimiter extends ZoneType {
 
-	public static final Codec<DimensionLimiter> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+	public static final MapCodec<DimensionLimiter> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
 		World.CODEC.fieldOf("dimension").forGetter(limiter -> limiter.dimension)
 	).apply(instance, DimensionLimiter::new));
 

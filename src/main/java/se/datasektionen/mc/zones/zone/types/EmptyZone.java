@@ -1,7 +1,7 @@
 package se.datasektionen.mc.zones.zone.types;
 
 import com.mojang.brigadier.builder.ArgumentBuilder;
-import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.util.math.BlockPos;
 import se.datasektionen.mc.zones.ZoneManagementCommand;
@@ -11,7 +11,7 @@ public class EmptyZone extends ZoneType {
 
 	public static final EmptyZone INSTANCE = new EmptyZone();
 
-	public static final Codec<EmptyZone> CODEC = Codec.unit(INSTANCE);
+	public static final MapCodec<EmptyZone> CODEC = MapCodec.unit(INSTANCE);
 
 	public static ArgumentBuilder<ServerCommandSource, ?> createCommand(
 			ArgumentBuilder<ServerCommandSource, ?> builder, ZoneManagementCommand.ZoneAdder addZone

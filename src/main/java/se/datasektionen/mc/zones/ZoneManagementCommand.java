@@ -247,7 +247,7 @@ public class ZoneManagementCommand {
 						return type.getDim().getValue().toString();
 					}).collect(Collectors.joining(", "))),
 					Text.literal("Data: ").append(
-						join(zone.getAllData().stream().map(data -> Text.literal(" ").append(data.toText())).iterator(), Text.literal(",\n"))
+						join(zone.getAllData().stream().map(data -> Text.literal(" ").append(data.toText(zone.getWorld().getRegistryManager()))).iterator(), Text.literal(",\n"))
 					)
 				);
 			})
@@ -352,7 +352,8 @@ public class ZoneManagementCommand {
 						spawnGroup("spawnGroup").then(
 							argument("data", NbtCompoundArgumentType.nbtCompound()).executes(ctx -> {
 								var spawnEntry = BetterSpawnEntry.CODEC.parse(
-										NbtOps.INSTANCE, NbtCompoundArgumentType.getNbtCompound(ctx, "data")
+										ctx.getSource().getRegistryManager().getOps(NbtOps.INSTANCE),
+										NbtCompoundArgumentType.getNbtCompound(ctx, "data")
 								).resultOrPartial(
 										err -> ctx.getSource().sendError(Text.literal(err))
 								);
@@ -443,7 +444,9 @@ public class ZoneManagementCommand {
 						argument("index", IntegerArgumentType.integer(0)).executes(ctx -> {
 							return removeSpawnRule(
 									ctx, "spawn remover",
-									blocker -> SpawnRemoverRegistry.SpawnRemover.REGISTRY_CODEC.encodeStart(NbtOps.INSTANCE, blocker).resultOrPartial(
+									blocker -> SpawnRemoverRegistry.SpawnRemover.REGISTRY_CODEC.encodeStart(
+											ctx.getSource().getRegistryManager().getOps(NbtOps.INSTANCE), blocker
+									).resultOrPartial(
 											METAcraftZones.LOGGER::error
 									).map(NbtElement::asString).orElse("Error"),
 									AdditionalSpawnsZoneData::getSpawnRemovers
@@ -456,7 +459,9 @@ public class ZoneManagementCommand {
 					zone().executes(ctx -> {
 						return listSpawnRules(
 								ctx, "spawn remover",
-								blocker -> SpawnRemoverRegistry.SpawnRemover.REGISTRY_CODEC.encodeStart(NbtOps.INSTANCE, blocker).resultOrPartial(
+								blocker -> SpawnRemoverRegistry.SpawnRemover.REGISTRY_CODEC.encodeStart(
+										ctx.getSource().getRegistryManager().getOps(NbtOps.INSTANCE), blocker
+								).resultOrPartial(
 										METAcraftZones.LOGGER::error
 								).map(NbtElement::asString).orElse("Error"),
 								AdditionalSpawnsZoneData::getSpawnRemovers
@@ -476,7 +481,9 @@ public class ZoneManagementCommand {
 											entity -> Optional.ofNullable(Registries.ENTITY_TYPE.get(entity)).map(EntityTypePredicate::create),
 											entityTag -> Optional.of(EntityTypePredicate.create(entityTag))
 									).flatMap(entity -> {
-										return SpawnRule.REGISTRY_CODEC.parse(NbtOps.INSTANCE, NbtCompoundArgumentType.getNbtCompound(ctx, "data")).resultOrPartial(
+										return SpawnRule.REGISTRY_CODEC.parse(
+												ctx.getSource().getRegistryManager().getOps(NbtOps.INSTANCE),
+												NbtCompoundArgumentType.getNbtCompound(ctx, "data")).resultOrPartial(
 												error -> ctx.getSource().sendError(Text.literal(error))
 										).map(rule -> new AdditionalSpawnsZoneData.SpawnRuleEntry(entity, rule));
 									}),
@@ -492,7 +499,9 @@ public class ZoneManagementCommand {
 						argument("index", IntegerArgumentType.integer(0)).executes(ctx -> {
 							return removeSpawnRule(
 									ctx, "spawn rule",
-									rule -> AdditionalSpawnsZoneData.SpawnRuleEntry.CODEC.encodeStart(NbtOps.INSTANCE, rule).resultOrPartial(
+									rule -> AdditionalSpawnsZoneData.SpawnRuleEntry.CODEC.encodeStart(
+											ctx.getSource().getRegistryManager().getOps(NbtOps.INSTANCE), rule
+									).resultOrPartial(
 											METAcraftZones.LOGGER::error
 									).map(NbtElement::asString).orElse("Error"),
 									AdditionalSpawnsZoneData::getSpawnRules
@@ -505,7 +514,9 @@ public class ZoneManagementCommand {
 					zone().executes(ctx -> {
 						return listSpawnRules(
 								ctx, "spawn rule",
-								rule -> AdditionalSpawnsZoneData.SpawnRuleEntry.CODEC.encodeStart(NbtOps.INSTANCE, rule).resultOrPartial(
+								rule -> AdditionalSpawnsZoneData.SpawnRuleEntry.CODEC.encodeStart(
+										ctx.getSource().getRegistryManager().getOps(NbtOps.INSTANCE), rule
+								).resultOrPartial(
 										METAcraftZones.LOGGER::error
 								).map(NbtElement::asString).orElse("Error"),
 								AdditionalSpawnsZoneData::getSpawnRules

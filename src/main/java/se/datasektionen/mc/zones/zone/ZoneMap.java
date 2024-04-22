@@ -6,6 +6,7 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.World;
 import se.datasektionen.mc.zones.util.LockHelper;
@@ -149,12 +150,12 @@ public class ZoneMap {
 		return list;
 	}
 
-	public void readNBT(MinecraftServer server, NbtList nbt) {
+	public void readNBT(MinecraftServer server, RegistryWrapper.WrapperLookup lookup, NbtList nbt) {
 		if (!nbt.isEmpty() && nbt.getHeldType() != NbtElement.COMPOUND_TYPE) {
 			throw new IllegalStateException("NBT type of list must be Compound!");
 		}
 		for (NbtElement element : nbt) {
-			RealZone.fromNBT(server, ((NbtCompound) element), markNeedsSave).ifPresent(this::addZoneInternal);
+			RealZone.fromNBT(server, lookup, ((NbtCompound) element), markNeedsSave).ifPresent(this::addZoneInternal);
 		}
 	}
 
