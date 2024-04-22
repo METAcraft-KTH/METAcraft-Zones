@@ -2,7 +2,7 @@ package se.datasektionen.mc.zones.zone;
 
 import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.datafixers.util.Either;
-import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import net.fabricmc.fabric.api.event.registry.FabricRegistryBuilder;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.registry.Registry;
@@ -88,13 +88,13 @@ public class ZoneRegistry {
 
 
 	private static <T extends ZoneType> ZoneTypeType<T> register(
-			String name, Codec<T> codec, ZoneCommandCreator commandCreator, Supplier<T> defaultValue
+			String name, MapCodec<T> codec, ZoneCommandCreator commandCreator, Supplier<T> defaultValue
 	) {
 		return Registry.register(REGISTRY, new Identifier(name), new ZoneTypeType<>(codec, commandCreator, defaultValue));
 	}
 
 	private static <T extends ZoneType> ZoneTypeType<T> register(
-			String name, Codec<T> codec, SimpleZoneCommandCreator commandCreator, Supplier<T> defaultValue
+			String name, MapCodec<T> codec, SimpleZoneCommandCreator commandCreator, Supplier<T> defaultValue
 	) {
 		return register(
 				name, codec,
@@ -121,7 +121,7 @@ public class ZoneRegistry {
 	}
 
 	public record ZoneTypeType<T extends se.datasektionen.mc.zones.zone.types.ZoneType>(
-			Codec<T> codec,
+			MapCodec<T> codec,
 			ZoneCommandCreator commandCreator,
 			Supplier<T> defaultValue
 	) {}

@@ -3,6 +3,7 @@ package se.datasektionen.mc.zones;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.PersistentState;
@@ -39,7 +40,7 @@ public class ZoneManager extends PersistentState {
 
 	private static PersistentState.Type<ZoneManager> getType(MinecraftServer server) {
 		return new Type<>(
-				() -> createNew(server), nbt -> fromNbt(server, nbt), null
+				() -> createNew(server), (nbt, lookup) -> fromNbt(server, nbt, lookup), null
 		);
 	}
 
@@ -48,11 +49,11 @@ public class ZoneManager extends PersistentState {
 		return new ZoneManager(server);
 	}
 
-	private static ZoneManager fromNbt(MinecraftServer server, NbtCompound tag) {
+	private static ZoneManager fromNbt(MinecraftServer server, NbtCompound tag, RegistryWrapper.WrapperLookup lookup) {
 		loading = true;
 		METAcraftZones.LOGGER.info("Previous state found, loading values");
 		ZoneManager settings = new ZoneManager(server);
-		settings.readNbt(tag);
+		settings.readNbt(tag, lookup);
 		loading = false;
 		return settings;
 	}
@@ -141,12 +142,12 @@ public class ZoneManager extends PersistentState {
 		return zones.containsZone(name);
 	}
 
-	public void readNbt(NbtCompound tag) {
-		zones.readNBT(server, tag.getList(zonesKey, NbtElement.COMPOUND_TYPE));
+	public void readNbt(NbtCompound tag, RegistryWrapper.WrapperLookup lookup) {
+		zones.readNBT(server, lookup, tag.getList(zonesKey, NbtElement.COMPOUND_TYPE));
 	}
 
 	@Override
-	public NbtCompound writeNbt(NbtCompound tag) {
+	public NbtCompound writeNbt(NbtCompound tag, RegistryWrapper.WrapperLookup lookup) {
 		tag.put(zonesKey, zones.writeNBT());
 		return tag;
 	}

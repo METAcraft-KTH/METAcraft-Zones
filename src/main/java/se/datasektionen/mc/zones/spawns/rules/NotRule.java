@@ -1,6 +1,6 @@
 package se.datasektionen.mc.zones.spawns.rules;
 
-import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnReason;
@@ -11,7 +11,7 @@ import se.datasektionen.mc.zones.spawns.SpawnRuleRegistry;
 
 public class NotRule implements SpawnRule {
 
-	public static final Codec<NotRule> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+	public static final MapCodec<NotRule> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
 			SpawnRule.REGISTRY_CODEC.fieldOf("rule").forGetter(rule -> rule.rule)
 	).apply(instance, NotRule::new));
 

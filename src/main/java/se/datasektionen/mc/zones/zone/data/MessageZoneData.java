@@ -1,6 +1,7 @@
 package se.datasektionen.mc.zones.zone.data;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -10,7 +11,7 @@ import java.util.Optional;
 
 public class MessageZoneData extends ZoneDataEntityTracking {
 
-	public static final Codec<MessageZoneData> CODEC = RecordCodecBuilder.create(
+	public static final MapCodec<MessageZoneData> CODEC = RecordCodecBuilder.mapCodec(
 			instance -> instance.group(
 					Codec.STRING.optionalFieldOf("enterCommand").forGetter(data -> data.enterCommand),
 					Codec.STRING.optionalFieldOf("leaveCommand").forGetter(data -> data.leaveCommand)

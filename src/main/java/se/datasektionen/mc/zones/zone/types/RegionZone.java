@@ -2,6 +2,7 @@ package se.datasektionen.mc.zones.zone.types;
 
 import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.command.argument.ColumnPosArgumentType;
 import net.minecraft.server.command.ServerCommandSource;
@@ -14,7 +15,7 @@ import static net.minecraft.server.command.CommandManager.argument;
 
 public class RegionZone extends ZoneType {
 
-	public static final Codec<RegionZone> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+	public static final MapCodec<RegionZone> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
 			Codec.INT.fieldOf("x1").forGetter(zone -> zone.minX),
 			Codec.INT.fieldOf("z1").forGetter(zone -> zone.minZ),
 			Codec.INT.fieldOf("x2").forGetter(zone -> zone.maxX),

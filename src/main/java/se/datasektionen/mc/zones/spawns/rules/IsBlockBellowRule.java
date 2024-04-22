@@ -2,6 +2,7 @@ package se.datasektionen.mc.zones.spawns.rules;
 
 import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.block.Block;
 import net.minecraft.entity.EntityType;
@@ -17,7 +18,7 @@ public class IsBlockBellowRule implements SpawnRule {
 
 	public Either<Block, TagKey<Block>> blockBelow;
 
-	public static final Codec<IsBlockBellowRule> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+	public static final MapCodec<IsBlockBellowRule> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
 			Codec.either(
 					Registries.BLOCK.getCodec(),
 					TagKey.codec(Registries.BLOCK.getKey())

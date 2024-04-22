@@ -2,7 +2,7 @@ package se.datasektionen.mc.zones.zone.types;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.builder.ArgumentBuilder;
-import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.util.math.BlockPos;
@@ -27,8 +27,8 @@ public abstract class CombinedZone extends ZoneType {
 
 	protected final ReadWriteLock lock = new ReentrantReadWriteLock();
 
-	public static <T extends CombinedZone> Codec<T> getCodec(Function<List<ZoneType>, T> creator) {
-		return RecordCodecBuilder.create(instance -> instance.group(
+	public static <T extends CombinedZone> MapCodec<T> getCodec(Function<List<ZoneType>, T> creator) {
+		return RecordCodecBuilder.mapCodec(instance -> instance.group(
 				REGISTRY_CODEC.listOf().fieldOf("zones").forGetter(zone -> zone.zones)
 		).apply(instance, creator));
 	}

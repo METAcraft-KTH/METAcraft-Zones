@@ -3,6 +3,7 @@ package se.datasektionen.mc.zones.spawns.rules;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.Keyable;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnReason;
@@ -30,7 +31,7 @@ public class LightLevelSpawnRule implements SpawnRule {
 		}
 	}, type -> DataResult.success(type.name().toLowerCase(Locale.ROOT)));
 
-	public static final Codec<LightLevelSpawnRule> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+	public static final MapCodec<LightLevelSpawnRule> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
 			Codec.simpleMap(
 					LIGHT_TYPE_CODEC, NumberRange.IntRange.CODEC,
 					Keyable.forStrings(() -> Arrays.stream(LightCheckMode.values()).map(type -> type.name().toLowerCase(Locale.ROOT)))

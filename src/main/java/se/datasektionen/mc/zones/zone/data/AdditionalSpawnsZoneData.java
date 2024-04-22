@@ -4,7 +4,6 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
-import com.mojang.datafixers.util.Either;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
@@ -18,7 +17,6 @@ import se.datasektionen.mc.zones.METAcraftZones;
 import se.datasektionen.mc.zones.spawns.BetterSpawnEntry;
 import se.datasektionen.mc.zones.spawns.SpawnRemoverRegistry;
 import se.datasektionen.mc.zones.spawns.rules.SpawnRule;
-import se.datasektionen.mc.zones.util.CodecHelper;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -51,15 +49,9 @@ public class AdditionalSpawnsZoneData extends ZoneData {
 		).collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
 	});
 
-	private static final Codec<SpawnRemoverRegistry.SpawnRemover> backwardsCompatCodec = Codec.either(
-			EntityTypePredicate.CODEC, SpawnRemoverRegistry.SpawnRemover.REGISTRY_CODEC
-	).xmap(either -> either.map(SpawnRemoverRegistry.TypesSpawnRemover::new, remover -> remover), Either::right);
-
-	public static final Codec<AdditionalSpawnsZoneData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+	public static final MapCodec<AdditionalSpawnsZoneData> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
 			SPAWN_ENTRY_MAP_CODEC.fieldOf("spawns").forGetter(data -> data.spawns),
-			CodecHelper.fieldOfWithMigration(
-					backwardsCompatCodec.listOf(), "spawnRemovers", "defaultSpawnBlockers"
-			).forGetter(data -> data.spawnRemovers),
+			SpawnRemoverRegistry.SpawnRemover.REGISTRY_CODEC.listOf().fieldOf("spawnRemovers").forGetter(data -> data.spawnRemovers),
 			SpawnRuleEntry.CODEC.listOf().fieldOf("spawnRules").forGetter(data -> data.rules)
 	).apply(instance, AdditionalSpawnsZoneData::new));
 
@@ -106,7 +98,7 @@ public class AdditionalSpawnsZoneData extends ZoneData {
 
 	@Override
 	public String toString() {
-		return CODEC.encodeStart(NbtOps.INSTANCE, this).resultOrPartial(METAcraftZones.LOGGER::error).map(NbtElement::asString).orElse("Error");
+		return CODEC.codec().encodeStart(NbtOps.INSTANCE, this).resultOrPartial(METAcraftZones.LOGGER::error).map(NbtElement::asString).orElse("Error");
 	}
 
 	public record SpawnRuleEntry(EntityTypePredicate type, SpawnRule rule) {

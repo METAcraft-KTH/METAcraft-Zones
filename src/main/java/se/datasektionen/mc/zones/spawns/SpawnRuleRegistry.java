@@ -1,6 +1,7 @@
 package se.datasektionen.mc.zones.spawns;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import net.fabricmc.fabric.api.event.registry.FabricRegistryBuilder;
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKey;
@@ -26,13 +27,13 @@ public class SpawnRuleRegistry {
 
 
 
-	public record SpawnRuleType<T extends SpawnRule>(Codec<T> codec) {}
+	public record SpawnRuleType<T extends SpawnRule>(MapCodec<T> codec) {}
 
 	public static void init() {
 
 	}
 
-	public static <T extends SpawnRule> SpawnRuleType<T> register(String id, Codec<T> codec) {
+	public static <T extends SpawnRule> SpawnRuleType<T> register(String id, MapCodec<T> codec) {
 		return Registry.register(REGISTRY, new Identifier(id), new SpawnRuleType<>(codec));
 	}
 

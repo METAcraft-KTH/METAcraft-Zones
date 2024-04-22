@@ -1,6 +1,6 @@
 package se.datasektionen.mc.zones.spawns.rules;
 
-import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnReason;
 import net.minecraft.util.math.BlockPos;
@@ -12,7 +12,7 @@ public class BlockBelowCanSpawn implements SpawnRule {
 
 	public static final BlockBelowCanSpawn INSTANCE = new BlockBelowCanSpawn();
 
-	public static final Codec<BlockBelowCanSpawn> CODEC = Codec.unit(INSTANCE);
+	public static final MapCodec<BlockBelowCanSpawn> CODEC = MapCodec.unit(INSTANCE);
 
 	private BlockBelowCanSpawn() {}
 

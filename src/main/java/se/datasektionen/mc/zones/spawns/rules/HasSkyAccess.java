@@ -1,6 +1,6 @@
 package se.datasektionen.mc.zones.spawns.rules;
 
-import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnReason;
@@ -12,7 +12,7 @@ import se.datasektionen.mc.zones.spawns.SpawnRuleRegistry;
 
 public class HasSkyAccess implements SpawnRule {
 
-	public static final Codec<HasSkyAccess> CODEC = RecordCodecBuilder.create(
+	public static final MapCodec<HasSkyAccess> CODEC = RecordCodecBuilder.mapCodec(
 			instance -> instance.group(
 					Heightmap.Type.CODEC.fieldOf("heightmap").forGetter(type -> type.heightmap)
 			).apply(instance, HasSkyAccess::new)

@@ -2,6 +2,7 @@ package se.datasektionen.mc.zones.zone.types;
 
 import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.command.argument.ColumnPosArgumentType;
 import net.minecraft.server.command.ServerCommandSource;
@@ -19,14 +20,14 @@ public class TriangleZone extends ZoneType {
 	private final ColumnPos pos3;
 
 	private final double area;
-	private static final Codec<ColumnPos> COLUMN_POS_CODEC = RecordCodecBuilder.create(
+	private static final MapCodec<ColumnPos> COLUMN_POS_CODEC = RecordCodecBuilder.mapCodec(
 			instance -> instance.group(
 					Codec.INT.fieldOf("x").forGetter(ColumnPos::x),
 					Codec.INT.fieldOf("z").forGetter(ColumnPos::z)
 			).apply(instance, ColumnPos::new)
 	);
 
-	public static final Codec<TriangleZone> CODEC = RecordCodecBuilder.create(
+	public static final MapCodec<TriangleZone> CODEC = RecordCodecBuilder.mapCodec(
 			instance -> instance.group(
 					COLUMN_POS_CODEC.fieldOf("pos1").forGetter(zone -> zone.pos1),
 					COLUMN_POS_CODEC.fieldOf("pos2").forGetter(zone -> zone.pos2),

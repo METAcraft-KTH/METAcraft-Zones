@@ -1,7 +1,7 @@
 package se.datasektionen.mc.zones.zone.types;
 
 import com.mojang.brigadier.builder.ArgumentBuilder;
-import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.util.math.BlockPos;
@@ -14,7 +14,7 @@ public class NegateZone extends ZoneType {
 
 	protected final ZoneType zone;
 
-	public static final Codec<NegateZone> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+	public static final MapCodec<NegateZone> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
 			REGISTRY_CODEC.fieldOf("zone").forGetter(zone -> zone.zone)
 	).apply(instance, NegateZone::new));
 
