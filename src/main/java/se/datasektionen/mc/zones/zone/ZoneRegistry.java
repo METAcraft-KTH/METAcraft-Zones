@@ -90,7 +90,7 @@ public class ZoneRegistry {
 	private static <T extends ZoneType> ZoneTypeType<T> register(
 			String name, MapCodec<T> codec, ZoneCommandCreator commandCreator, Supplier<T> defaultValue
 	) {
-		return Registry.register(REGISTRY, new Identifier(name), new ZoneTypeType<>(codec, commandCreator, defaultValue));
+		return Registry.register(REGISTRY, Identifier.ofVanilla(name), new ZoneTypeType<>(codec, commandCreator, defaultValue));
 	}
 
 	private static <T extends ZoneType> ZoneTypeType<T> register(

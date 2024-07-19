@@ -58,7 +58,7 @@ dependencies {
 	include(modImplementation("me.lucko:fabric-permissions-api:${project.fabric_permissions_api_version}"))
 
 	modImplementation("xyz.nucleoid:stimuli:${project.stimuli_version}")
-	modImplementation("maven.modrinth:leukocyte:${project.leukocyte_version}")
+	modCompileOnly("maven.modrinth:leukocyte:${project.leukocyte_version}")
 }
 
 processResources {

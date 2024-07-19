@@ -29,6 +29,6 @@ public class METAcraftZones implements ModInitializer {
 	}
 
 	public static Identifier getID(String name) {
-		return new Identifier(MODID, name);
+		return Identifier.of(MODID, name);
 	}
 }
